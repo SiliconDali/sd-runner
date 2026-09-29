@@ -1,0 +1,29 @@
+name: Runner
+
+on:
+  pull_request:
+    paths:
+      - "runner/**"
+      - ".github/workflows/runner.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "runner/**"
+      - ".github/workflows/runner.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: runner/package-lock.json
+
+      - run: npm ci --prefix runner
+
+      - run: npm run check --prefix runner

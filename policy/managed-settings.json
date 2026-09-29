@@ -1,0 +1,24 @@
+{
+  "disableAllHooks": true,
+  "permissions": {
+    "deny": ["WebFetch", "WebSearch", "mcp__*"]
+  },
+  "env": {
+    "HUSKY": "0",
+    "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_AUTOUPDATER": "1"
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "strictAllowlist": true,
+      "allowedDomains": ["registry.npmjs.org"]
+    },
+    "credentials": {
+      "envVars": [{ "name": "CLAUDE_CODE_OAUTH_TOKEN", "mode": "deny" }]
+    }
+  }
+}

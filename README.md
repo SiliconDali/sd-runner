@@ -11,14 +11,14 @@ What an unattended run executes: the scripts that drive Claude Code through [san
 
 ## Inputs and outputs
 
-Every script reads its inputs from the environment and runs from the checkout's root:
+Each script reads its inputs from the environment and runs from the checkout's root. Both read `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` and `MODEL`; `implement` also reads `TICKET_FILE`, `SPEC_FILE` and `SIBLINGS_FILE`, and `write-pr` reads `TICKET_FILE` only:
 
 | Variable | Meaning |
 | --- | --- |
 | `BRANCH` | branch to work on, already checked out |
 | `BASE_BRANCH` | branch it was cut from and merges into |
 | `EXTERNAL_REF` | opaque reference to the work in the host's system |
-| `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`) |
+| `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`); `write-pr` takes the ticket only |
 | `OUTPUT_DIR` | where results go (default: the OS temp dir) |
 | `MODEL` | Claude model id (default in `prompt-args.ts`) |
 

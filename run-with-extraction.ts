@@ -4,6 +4,7 @@ import {
   type RunOptions,
   type RunResult,
 } from "@ai-hero/sandcastle";
+import { resumeRunOptions, requireSessionId } from "./resume-options";
 import { runWithRetry } from "./run-with-retry";
 
 /**
@@ -61,25 +62,18 @@ export async function runWithExtraction<T>(
 
   const produce = await run(produceOptions);
 
-  const sessionId = produce.iterations.at(-1)?.sessionId;
-  if (!sessionId) {
-    throw new Error(
-      "runWithExtraction: produce run returned no sessionId, so the extraction " +
-        "pass cannot resume it. Session capture must be enabled (Claude Code " +
-        "provider with sessions written to the host)."
-    );
-  }
-
-  // The extraction pass uses an inline `prompt`, so drop the produce phase's
-  // `promptArgs`: sandcastle only allows promptArgs alongside a promptFile.
-  const { promptArgs: _produceArgs, ...extractionOptions } = produceOptions;
+  const sessionId = requireSessionId(
+    produce.iterations.at(-1)?.sessionId,
+    "runWithExtraction: produce run returned"
+  );
 
   const extraction = await runWithRetry({
-    ...extractionOptions,
-    name: produceOptions.name ? `${produceOptions.name} (extract)` : undefined,
-    promptFile: undefined,
-    prompt: extractionPrompt,
-    resumeSession: sessionId,
+    ...resumeRunOptions(produceOptions, {
+      suffix: "extract",
+      prompt: extractionPrompt,
+      sessionId,
+      output,
+    }),
     output,
     maxAttempts,
   });

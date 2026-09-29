@@ -31,8 +31,6 @@ for arg in "$@"; do
   esac
 done
 
-command -v jq >/dev/null || { echo "install-runner-policy: jq is required" >&2; exit 1; }
-
 mkdir -p "$destdir"
 
 if [ "$sandbox" = 1 ]; then
@@ -44,6 +42,7 @@ if [ "$sandbox" = 1 ]; then
     sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
   fi
 else
+  command -v jq >/dev/null || { echo "install-runner-policy: jq is required for --no-sandbox" >&2; exit 1; }
   jq 'del(.sandbox)' "$policy_dir/managed-settings.json" > "$destdir/managed-settings.json"
 fi
 

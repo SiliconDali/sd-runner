@@ -102,7 +102,7 @@ describe("runWithRetry", () => {
       .mockRejectedValueOnce(structuredError('{"value":}'))
       .mockResolvedValueOnce(successResult("recovered"));
 
-    const promptArgs = { PR_NUMBER: "878" };
+    const promptArgs = { EXAMPLE: "value" };
     await runWithRetry({ ...baseOptions(), promptArgs });
 
     // First call uses promptFile, so promptArgs is valid there.

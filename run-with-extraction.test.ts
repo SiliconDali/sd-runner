@@ -100,7 +100,7 @@ describe("runWithExtraction", () => {
       .mockResolvedValueOnce(produceResult())
       .mockResolvedValueOnce(extractionResult("ok"));
 
-    const promptArgs = { PR_NUMBER: "878" };
+    const promptArgs = { EXAMPLE: "value" };
     await runWithExtraction({ ...baseOptions(), promptArgs });
 
     // The produce call uses promptFile, so promptArgs is valid there.

@@ -6,6 +6,7 @@ import {
   type RunResult,
 } from "@ai-hero/sandcastle";
 import { buildRetryFeedback } from "./retry-feedback";
+import { requireSessionId, resumeRunOptions } from "./resume-options";
 
 /**
  * Options for {@link runWithRetry}: the standard `run()` options with `output`
@@ -54,28 +55,18 @@ export async function runWithRetry<T>(
       }
 
       // Retry: resume the failed session and feed back what went wrong.
-      const sessionId = lastError.sessionId;
-      if (!sessionId) {
-        throw new Error(
-          "runWithRetry: the failed run carried no sessionId, so it cannot be " +
-            "resumed for a retry. Session capture must be enabled (Claude Code " +
-            "provider with sessions written to the host)."
-        );
-      }
-
-      // The retry uses an inline `prompt` (the feedback), so drop `promptArgs`:
-      // sandcastle only allows promptArgs alongside a promptFile.
-      const { promptArgs: _retryArgs, ...retryOptions } = runOptions;
-      return await run({
-        ...retryOptions,
-        name: runOptions.name
-          ? `${runOptions.name} (retry ${attempt - 1})`
-          : undefined,
-        promptFile: undefined,
-        prompt: buildRetryFeedback(lastError, attempt, maxAttempts),
-        resumeSession: sessionId,
-        output,
-      });
+      const sessionId = requireSessionId(
+        lastError.sessionId,
+        "runWithRetry: the failed run carried"
+      );
+      return await run(
+        resumeRunOptions(runOptions, {
+          suffix: `retry ${attempt - 1}`,
+          prompt: buildRetryFeedback(lastError, attempt, maxAttempts),
+          sessionId,
+          output,
+        })
+      );
     } catch (error) {
       if (error instanceof StructuredOutputError) {
         lastError = error;

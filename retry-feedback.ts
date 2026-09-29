@@ -9,8 +9,8 @@ import { StructuredOutputError } from "@ai-hero/sandcastle";
  * sandcastle's "resolved prompt must contain the opening tag" constraint when
  * the block is used as a standalone retry prompt.
  *
- * Shared by `runWithExtraction` (resumes the produce session) and
- * `runWithRetry` (resumes the failed call's own session).
+ * Called by `runWithRetry` on every retry; `runWithExtraction` reaches it
+ * through `runWithRetry` for its extraction pass.
  */
 export function buildRetryFeedback(
   error: StructuredOutputError,

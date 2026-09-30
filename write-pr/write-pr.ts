@@ -6,6 +6,7 @@ import { fail, required } from "../env";
 import { fileBlock, readRunInputs } from "../prompt-args";
 import { runWithRetry } from "../run-with-retry";
 import { PrOutput } from "./output";
+import { agent } from "../agent"
 
 const inputs = readRunInputs();
 const TICKET_FILE = required("TICKET_FILE");
@@ -14,7 +15,7 @@ const MAX_ATTEMPTS = 3;
 try {
   const result = await runWithRetry({
     name: `write-pr ${inputs.externalRef}`,
-    agent: sandcastle.claudeCode(inputs.model),
+    agent: agent(inputs.model),
     sandbox: noSandbox(),
     logging: { type: "stdout" },
     promptFile: path.join(import.meta.dirname, "prompt.md"),

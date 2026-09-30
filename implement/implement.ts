@@ -2,13 +2,15 @@ import * as path from "node:path";
 import { execSync } from "node:child_process";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
-import { fail, required } from "../env";
+import { fail, optional, required } from "../env";
 import { fileBlock, readRunInputs } from "../prompt-args";
+import { diagnosticsBlock } from "./diagnostics";
 
 const inputs = readRunInputs();
 const TICKET_FILE = required("TICKET_FILE");
 const SPEC_FILE = required("SPEC_FILE");
 const SIBLINGS_FILE = required("SIBLINGS_FILE");
+const DIAGNOSTICS_FILE = optional("DIAGNOSTICS_FILE", "");
 
 const startSha = git("rev-parse HEAD");
 
@@ -26,6 +28,7 @@ try {
       TICKET: fileBlock("ticket", TICKET_FILE),
       SPEC: fileBlock("spec", SPEC_FILE),
       SIBLINGS: fileBlock("siblings", SIBLINGS_FILE),
+      DIAGNOSTICS: diagnosticsBlock(DIAGNOSTICS_FILE),
     },
   });
 

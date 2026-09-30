@@ -12,6 +12,7 @@ export const PROMPT_ARG_KEYS = [
   "SPEC",
   "SIBLINGS",
   "THREADS",
+  "DIAGNOSTICS",
 ] as const;
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
@@ -43,3 +44,4 @@ export function readRunInputs(): RunInputs {
 export function fileBlock(tag: string, file: string): string {
   return dataBlock(tag, fs.readFileSync(file, "utf8"));
 }
+

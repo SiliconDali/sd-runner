@@ -19,6 +19,12 @@ describe("prompts", () => {
     expect(extract).not.toMatch(/\{\{/);
   });
 
+  it("implement carries the optional diagnostics placeholder before the task", () => {
+    const prompt = read("implement/prompt.md");
+    expect(prompt.indexOf("{{DIAGNOSTICS}}")).toBeGreaterThanOrEqual(0);
+    expect(prompt.indexOf("{{DIAGNOSTICS}}")).toBeLessThan(prompt.indexOf("# Task"));
+  });
+
   it.each(prompts)("%s references only known prompt args", (file) => {
     const keys = [...read(file).matchAll(/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g)].map(
       (m) => m[1]

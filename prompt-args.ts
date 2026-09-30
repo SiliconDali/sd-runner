@@ -11,6 +11,7 @@ export const PROMPT_ARG_KEYS = [
   "TICKET",
   "SPEC",
   "SIBLINGS",
+  "THREADS",
 ] as const;
 
 export const DEFAULT_MODEL = "claude-opus-5-5";

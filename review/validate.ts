@@ -2,12 +2,8 @@ import type { DiffIndex, Side } from "./diff";
 import type { ReviewComment, ReviewOutput, ThreadReply } from "./output";
 import { threadRoots, type Threads } from "./threads";
 
-export interface AnchoredComment {
-  readonly path: string;
-  readonly line: number;
-  readonly side: Side;
-  readonly body: string;
-}
+/** A comment that passed anchor validation, its side made explicit. */
+export type AnchoredComment = Readonly<Omit<ReviewComment, "side"> & { side: Side }>;
 
 export type Dropped =
   | { readonly kind: "comment"; readonly reason: string; readonly item: ReviewComment }
@@ -24,6 +20,7 @@ export interface ValidatedReview {
  * Keep only what the host can post: inline comments anchored to a line the
  * diff shows on their side (RIGHT unless stated), and replies to a comment in
  * one of the fetched review threads, retargeted at the thread's first comment.
+ * Replies that land on the same thread are joined into one, in order.
  * Everything else is returned in `dropped` with the reason.
  */
 export function validateReview(
@@ -51,7 +48,7 @@ export function validateReview(
   }
 
   const roots = threadRoots(threads);
-  const replies: ThreadReply[] = [];
+  const replies = new Map<number, string>();
   for (const item of output.replies) {
     const root = roots.get(item.comment_id);
     if (root === undefined) {
@@ -61,9 +58,15 @@ export function validateReview(
         item,
       });
     } else {
-      replies.push({ comment_id: root, body: item.body });
+      const earlier = replies.get(root);
+      replies.set(root, earlier === undefined ? item.body : `${earlier}\n\n${item.body}`);
     }
   }
 
-  return { summary: output.summary, comments, replies, dropped };
+  return {
+    summary: output.summary,
+    comments,
+    replies: [...replies].map(([comment_id, body]) => ({ comment_id, body })),
+    dropped,
+  };
 }

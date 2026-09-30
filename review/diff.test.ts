@@ -1,5 +1,9 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { describe, it, expect } from "vitest";
-import { parseDiff } from "./diff";
+import { diffAgainst, parseDiff } from "./diff";
 
 const diff = [
   "diff --git a/src/a.ts b/src/a.ts",
@@ -105,5 +109,32 @@ describe("parseDiff", () => {
 
   it("returns an empty index for an empty diff", () => {
     expect(parseDiff("").paths()).toEqual([]);
+  });
+});
+
+describe("diffAgainst", () => {
+  it("indexes a path with a space, which git ends with a tab on the ---/+++ lines", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "diff-repo-"));
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
+    try {
+      git("init", "-q", "-b", "main");
+      git("config", "user.email", "t@example.com");
+      git("config", "user.name", "t");
+      git("config", "commit.gpgsign", "false");
+      fs.writeFileSync(path.join(repo, "foo bar.ts"), "one\n");
+      git("add", "-A");
+      git("commit", "-q", "-m", "init");
+      git("checkout", "-q", "-b", "feat");
+      fs.writeFileSync(path.join(repo, "foo bar.ts"), "one\ntwo\n");
+      git("commit", "-q", "-am", "change");
+
+      const diff = diffAgainst("main", repo);
+      expect(diff).toContain("+++ b/foo bar.ts\t");
+      const index = parseDiff(diff);
+      expect(index.paths()).toEqual(["foo bar.ts"]);
+      expect(index.has("foo bar.ts", 2, "RIGHT")).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 });

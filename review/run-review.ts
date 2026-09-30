@@ -5,7 +5,7 @@ import * as sandcastle from "@ai-hero/sandcastle";
 import { dataBlock } from "../data-block";
 import { fileBlock, type RunInputs } from "../prompt-args";
 import { runWithExtraction } from "../run-with-extraction";
-import { parseDiff } from "./diff";
+import { diffAgainst, parseDiff } from "./diff";
 import { ReviewOutput } from "./output";
 import { parseThreads } from "./threads";
 import { validateReview, type AnchoredComment, type Dropped } from "./validate";
@@ -48,18 +48,6 @@ export async function runReview(options: ReviewRunOptions): Promise<ReviewRunRes
   const { inputs, cwd } = options;
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }).trim();
-  const diffAgainstBase = () =>
-    git(
-      "-c",
-      "core.quotePath=false",
-      "diff",
-      "--no-color",
-      "--no-ext-diff",
-      "--unified=3",
-      "--src-prefix=a/",
-      "--dst-prefix=b/",
-      `${inputs.baseBranch}...HEAD`
-    );
 
   const threadsText = fs.readFileSync(options.threadsFile, "utf8");
   let threads;
@@ -71,7 +59,7 @@ export async function runReview(options: ReviewRunOptions): Promise<ReviewRunRes
     );
   }
 
-  if (!diffAgainstBase()) {
+  if (!diffAgainst(inputs.baseBranch, cwd)) {
     throw new Error(`HEAD has no changes against ${inputs.baseBranch}: nothing to review.`);
   }
   const startSha = git("rev-parse", "HEAD");
@@ -96,6 +84,14 @@ export async function runReview(options: ReviewRunOptions): Promise<ReviewRunRes
     maxAttempts: options.maxAttempts,
   });
 
+  try {
+    git("merge-base", "--is-ancestor", startSha, "HEAD");
+  } catch {
+    throw new Error(
+      `Review rewrote the branch: ${startSha} is no longer an ancestor of HEAD. ` +
+        "Fixes go in one new commit on top; existing commits are never amended, reset or rebased."
+    );
+  }
   const fixCommits = Number(git("rev-list", "--count", `${startSha}..HEAD`));
   if (fixCommits > 1) {
     throw new Error(`Review made ${fixCommits} commits; fixes go in at most one.`);
@@ -106,9 +102,9 @@ export async function runReview(options: ReviewRunOptions): Promise<ReviewRunRes
   }
 
   const headSha = git("rev-parse", "HEAD");
-  const review = validateReview(result.output, parseDiff(diffAgainstBase()), threads);
+  const review = validateReview(result.output, parseDiff(diffAgainst(inputs.baseBranch, cwd)), threads);
   for (const dropped of review.dropped) {
-    console.warn(`Dropped ${dropped.kind}: ${dropped.reason}`);
+    console.warn(`Dropped ${dropped.kind}: ${dropped.reason}: ${dropped.item.body}`);
   }
 
   const payload: ReviewPayload = {

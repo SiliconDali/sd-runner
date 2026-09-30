@@ -16,7 +16,7 @@ Run the `code-review` skill with `{{BASE_BRANCH}}` as the fixed point. Its spec 
 
 Read every unresolved thread. A concern in one that holds up is a finding like any other.
 
-# Fix, then post
+# Fix, then report
 
 - **Correctness findings** (behaviour that is wrong): write a test that fails because of the bug, then fix the code until it passes. If no test can reasonably express it, leave it for the report.
 - **Standards findings**: fix a documented-standard breach only when the fix is mechanical and local. Baseline smells are judgement calls: report them, do not fix them.

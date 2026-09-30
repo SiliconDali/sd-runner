@@ -7,8 +7,9 @@ const Comment = z.object({
 });
 
 const Thread = z.object({
-  path: z.string().optional(),
-  line: z.number().int().nullable().optional(),
+  // Context for the agent only, never read here, so any shape the host sends passes.
+  path: z.unknown().optional(),
+  line: z.unknown().optional(),
   comments: z.array(Comment).min(1),
 });
 

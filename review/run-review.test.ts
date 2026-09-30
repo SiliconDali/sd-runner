@@ -154,7 +154,8 @@ describe("runReview", () => {
     expect(result.dropped).toHaveLength(4);
 
     const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
-    expect(logged).toContain("src/a.ts:50 (RIGHT) is not a line in the diff");
+    expect(logged).toContain("src/a.ts:50 (RIGHT) is not a line in the diff: Hallucinated line.");
+    expect(logged).toContain("comment 7 is not in an open review thread: Unknown.");
     expect(logged).toContain("src/nowhere.ts is not in the diff");
     expect(logged).toContain("comment 99 is not in an open review thread");
     expect(logged).toContain("comment 7 is not in an open review thread");
@@ -199,6 +200,20 @@ describe("runReview", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
 
     await expect(runReview(options())).rejects.toThrow(/2 commits/);
+    expect(fs.existsSync(path.join(out, "review.json"))).toBe(false);
+  });
+
+  it("fails when the agent rewrote the commits it was given", async () => {
+    mockRun
+      .mockImplementationOnce(async () => {
+        write("src/a.ts", "one\nTWO!\nthree\n");
+        git("commit", "-q", "-a", "--amend", "--no-edit");
+        return produced();
+      })
+      .mockResolvedValueOnce(extracted({ summary: "ok" }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await expect(runReview(options())).rejects.toThrow(/rewrote/);
     expect(fs.existsSync(path.join(out, "review.json"))).toBe(false);
   });
 

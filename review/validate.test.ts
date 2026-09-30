@@ -76,7 +76,7 @@ describe("validateReview", () => {
     expect(result.dropped[0]).toMatchObject({ kind: "comment", item: { line: 40 } });
   });
 
-  it("keeps replies to thread comments, pointed at the thread's first comment", () => {
+  it("keeps replies to thread comments, pointed at the thread's first comment, one per thread", () => {
     const result = validateReview(
       {
         summary: "s",
@@ -89,10 +89,7 @@ describe("validateReview", () => {
       diff,
       threads
     );
-    expect(result.replies).toEqual([
-      { comment_id: 10, body: "a" },
-      { comment_id: 10, body: "b" },
-    ]);
+    expect(result.replies).toEqual([{ comment_id: 10, body: "a\n\nb" }]);
   });
 
   it("drops replies to unknown ids and to conversation comments", () => {

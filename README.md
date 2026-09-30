@@ -4,7 +4,7 @@ What an unattended run executes: the scripts that drive Claude Code through [san
 
 ## Layout
 
-- `implement/`: implement a ticket on a branch and commit. `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts.
+- `implement/`: implement a ticket on a branch and commit. `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked.
 - `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts`: wrappers over sandcastle's `run()` that resume the agent's session with feedback when structured output fails validation.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist and the credential unset for sandboxed commands) and `managed-mcp.json` (no servers).
 - `bin/`: `install-runner-policy.sh`, `neutralise-checkout-settings.sh`, `test.sh`.
@@ -27,7 +27,7 @@ The Claude credential is not read by the scripts: Claude Code inherits it from t
 
 ## Review
 
-`review` runs the `code-review` skill against `BASE_BRANCH`. Correctness findings get a test that breaks on the bug and a fix; every fix lands in a single commit in the code repo's own convention, and more than one commit fails the run. Missing spec coverage is reported, never coded. A second, resumed pass extracts the review as structured output, which the script validates against `git diff BASE_BRANCH...HEAD` taken after the fix commit, so a comment can sit on a line the fix added.
+`review` runs the `code-review` skill against `BASE_BRANCH`. Correctness findings get a test that breaks on the bug and a fix; every fix lands in a single commit in the code repo's own convention on top of the branch as it was, and more than one commit, or rewriting the commits already there (amend, reset, rebase), fails the run. Missing spec coverage is reported, never coded. A second, resumed pass extracts the review as structured output, which the script validates against `git diff BASE_BRANCH...HEAD` taken after the fix commit, so a comment can sit on a line the fix added.
 
 `THREADS_FILE` holds unresolved review threads, each with its comments first to last, and the conversation comments. Extra fields are ignored; write `{"threads": [], "comments": []}` when there are none:
 
@@ -59,9 +59,9 @@ Outputs:
   }
   ```
 
-- `replies.json`: `[{ "comment_id": 101, "body": "..." }]`, one `POST /repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies` with `body` per entry. `comment_id` is already the thread's first comment, which that endpoint requires.
+- `replies.json`: `[{ "comment_id": 101, "body": "..." }]`, one `POST /repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies` with `body` per entry. `comment_id` is already the thread's first comment, which that endpoint requires, and there is at most one entry per thread: replies the agent aimed at the same thread are joined.
 
-Validation drops, and logs as `Dropped comment: ...` or `Dropped reply: ...`, every inline comment whose file is not in the diff or whose line is not an added or context line of a hunk on its side (`RIGHT` unless the agent chose `LEFT` for a deleted line), and every reply whose `comment_id` is not in a fetched review thread. Conversation comments cannot be replied to inline; the agent answers them in the summary.
+Inline comments anchor to a single line. Validation drops, and logs with its body as `Dropped comment: ...` or `Dropped reply: ...`, every inline comment whose file is not in the diff or whose line is not an added or context line of a hunk on its side (`RIGHT` unless the agent chose `LEFT` for a deleted line), and every reply whose `comment_id` is not in a fetched review thread. Conversation comments cannot be replied to inline; the agent answers them in the summary.
 
 ## Wiring a host workflow
 

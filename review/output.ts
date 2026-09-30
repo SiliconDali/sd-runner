@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { Side } from "./diff";
 
 /** An inline comment the agent wants on the pull request, before anchor validation. */
 export const ReviewComment = z.strictObject({
   path: z.string().min(1),
   line: z.number().int().positive(),
-  side: z.enum(["LEFT", "RIGHT"]).optional(),
+  side: Side.optional(),
   body: z.string().min(1),
 });
 

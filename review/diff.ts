@@ -1,5 +1,9 @@
+import { execFileSync } from "node:child_process";
+import { z } from "zod";
+
 /** Which version of a file a review comment anchors to, in the pull request API's terms. */
-export type Side = "LEFT" | "RIGHT";
+export const Side = z.enum(["LEFT", "RIGHT"]);
+export type Side = z.infer<typeof Side>;
 
 /** The lines a unified diff shows, per file and side: the only lines an inline comment may anchor to. */
 export interface DiffIndex {
@@ -12,6 +16,29 @@ export interface DiffIndex {
 interface FileLines {
   readonly LEFT: Set<number>;
   readonly RIGHT: Set<number>;
+}
+
+/**
+ * `git diff base...HEAD` in `cwd`, with the flags `parseDiff` relies on: fixed
+ * `a/` and `b/` prefixes, three lines of context, unquoted paths, and no color
+ * or external diff driver whatever the user's config says.
+ */
+export function diffAgainst(base: string, cwd: string): string {
+  return execFileSync(
+    "git",
+    [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--no-color",
+      "--no-ext-diff",
+      "--unified=3",
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+      `${base}...HEAD`,
+    ],
+    { cwd, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }
+  ).trim();
 }
 
 const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
@@ -86,12 +113,12 @@ export function parseDiff(diff: string): DiffIndex {
     if (!current) continue;
 
     if (line.startsWith("--- ")) {
-      const path = line.slice(4);
+      const path = filePath(line);
       if (path !== "/dev/null") oldPath = stripPrefix(unquote(path), "a/");
       continue;
     }
     if (line.startsWith("+++ ")) {
-      const path = line.slice(4);
+      const path = filePath(line);
       rename(currentPath, path === "/dev/null" ? oldPath ?? "" : stripPrefix(unquote(path), "b/"));
       continue;
     }
@@ -111,6 +138,14 @@ export function parseDiff(diff: string): DiffIndex {
   };
 }
 
+/** The path on a `---` or `+++` line, without the tab git appends when the path contains a space. */
+function filePath(line: string): string {
+  const path = line.slice(4);
+  const tab = path.indexOf("\t");
+  return tab === -1 ? path : path.slice(0, tab);
+}
+
+// Strips the quotes only: C-escaped paths (control characters, backslashes) are not supported.
 function unquote(path: string): string {
   return path.length > 1 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path;
 }

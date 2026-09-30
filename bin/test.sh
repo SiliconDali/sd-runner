@@ -65,6 +65,21 @@ DESTDIR="$dest" RUNNER_POLICY_DEPS=0 bash "$here/install-runner-policy.sh" >/dev
 assert "sandbox: strict allowlist on" test "$(jq '.sandbox.network.strictAllowlist' "$dest/managed-settings.json")" = "true"
 assert "sandbox: managed mcp empty" test "$(jq -c . "$dest/managed-mcp.json")" = '{"mcpServers":{}}'
 
+# install: deps are installed in both modes (the env scrub needs bubblewrap)
+stubs="$tmp/stubs"; mkdir -p "$stubs"
+for cmd in apt-get sysctl; do
+  printf '#!/usr/bin/env bash\necho "%s $*" >> "%s/calls"\n' "$cmd" "$stubs" > "$stubs/$cmd"
+  chmod +x "$stubs/$cmd"
+done
+for mode in "--no-sandbox" ""; do
+  rm -f "$stubs/calls"
+  # shellcheck disable=SC2086
+  PATH="$stubs:$PATH" DESTDIR="$tmp/policy-deps" bash "$here/install-runner-policy.sh" $mode >/dev/null
+  label="${mode:-sandbox}"
+  assert "${label#--}: installs bubblewrap" grep -q "apt-get install .*bubblewrap" "$stubs/calls"
+  assert "${label#--}: lifts userns restriction" grep -q "sysctl -w kernel.apparmor_restrict_unprivileged_userns=0" "$stubs/calls"
+done
+
 # install: unknown flag
 set +e
 DESTDIR="$tmp/x" RUNNER_POLICY_DEPS=0 bash "$here/install-runner-policy.sh" --bogus >/dev/null 2>&1

@@ -3,12 +3,13 @@
 # so nothing the checkout contains (hooks, MCP servers, project env) can
 # override it. Run before the agent step, with the rights to write DESTDIR.
 #
-#   sudo install-runner-policy.sh              sandbox on: also installs
-#                                              bubblewrap and socat and lifts
-#                                              the AppArmor user-namespace
-#                                              restriction (Ubuntu 24.04)
+#   sudo install-runner-policy.sh              sandbox on
 #   sudo install-runner-policy.sh --no-sandbox controls only: the sandbox
 #                                              block is stripped
+#
+# Both modes install bubblewrap and socat and lift the AppArmor user-namespace
+# restriction (Ubuntu 24.04): CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap
+# even with the sandbox off.
 #
 # Environment:
 #   DESTDIR             where the two files go (default /etc/claude-code)
@@ -33,14 +34,15 @@ done
 
 mkdir -p "$destdir"
 
+if [ "${RUNNER_POLICY_DEPS:-1}" = 1 ]; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq bubblewrap socat
+  sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+fi
+
 if [ "$sandbox" = 1 ]; then
   cp "$policy_dir/managed-settings.json" "$destdir/managed-settings.json"
-  if [ "${RUNNER_POLICY_DEPS:-1}" = 1 ]; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq
-    apt-get install -y -qq bubblewrap socat
-    sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-  fi
 else
   command -v jq >/dev/null || { echo "install-runner-policy: jq is required for --no-sandbox" >&2; exit 1; }
   jq 'del(.sandbox)' "$policy_dir/managed-settings.json" > "$destdir/managed-settings.json"

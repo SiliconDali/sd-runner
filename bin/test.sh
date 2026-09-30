@@ -65,7 +65,7 @@ DESTDIR="$dest" RUNNER_POLICY_DEPS=0 bash "$here/install-runner-policy.sh" >/dev
 assert "sandbox: strict allowlist on" test "$(jq '.sandbox.network.strictAllowlist' "$dest/managed-settings.json")" = "true"
 assert "sandbox: managed mcp empty" test "$(jq -c . "$dest/managed-mcp.json")" = '{"mcpServers":{}}'
 
-# install: deps are installed in both modes (the env scrub needs bubblewrap)
+# install: deps are installed in both modes (they differ only in the policy file)
 stubs="$tmp/stubs"; mkdir -p "$stubs"
 for cmd in apt-get sysctl; do
   printf '#!/usr/bin/env bash\necho "%s $*" >> "%s/calls"\n' "$cmd" "$stubs" > "$stubs/$cmd"

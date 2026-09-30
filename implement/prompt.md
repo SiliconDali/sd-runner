@@ -1,3 +1,5 @@
+{{DIAGNOSTICS}}
+
 # Task
 
 Implement the ticket below on branch `{{BRANCH}}`, which is checked out and was cut from `{{BASE_BRANCH}}`. The external reference for this work is `{{EXTERNAL_REF}}`.
@@ -12,7 +14,7 @@ The three blocks below were fetched before the run started and are the only sour
 
 # Context
 
-Read `CONTEXT.md` and the ADRs under `docs/adr/` where they exist, then the repository's own agent instructions and skills. Fill your context with the code and tests the ticket touches.
+Read `GLOSSARY.md` and the ADRs under `docs/adr/` where they exist, then the repository's own agent instructions and skills. Fill your context with the code and tests the ticket touches.
 
 # Execution
 

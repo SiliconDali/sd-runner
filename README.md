@@ -4,14 +4,14 @@ What an unattended run executes: the scripts that drive Claude Code through [san
 
 ## Layout
 
-- `implement/`: implement a ticket on a branch and commit. `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked.
+- `implement/`: implement a ticket on a branch and commit; `diagnostics.md` is the optional section a host can switch on for one run (below). `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked.
 - `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts`: wrappers over sandcastle's `run()` that resume the agent's session with feedback when structured output fails validation.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist and the credential unset for sandboxed commands) and `managed-mcp.json` (no servers).
 - `bin/`: `install-runner-policy.sh`, `neutralise-checkout-settings.sh`, `test.sh`.
 
 ## Inputs and outputs
 
-Each script reads its inputs from the environment and runs from the checkout's root. All read `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` and `MODEL`; `implement` also reads `TICKET_FILE`, `SPEC_FILE` and `SIBLINGS_FILE`, `review` reads `TICKET_FILE`, `SPEC_FILE` and `THREADS_FILE`, and `write-pr` reads `TICKET_FILE` only:
+Each script reads its inputs from the environment and runs from the checkout's root. All read `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` and `MODEL`; `implement` also reads `TICKET_FILE`, `SPEC_FILE` and `SIBLINGS_FILE` (and `DIAGNOSTICS_FILE` if set), `review` reads `TICKET_FILE`, `SPEC_FILE` and `THREADS_FILE`, and `write-pr` reads `TICKET_FILE` only:
 
 | Variable | Meaning |
 | --- | --- |
@@ -19,6 +19,7 @@ Each script reads its inputs from the environment and runs from the checkout's r
 | `BASE_BRANCH` | branch it was cut from and merges into; for `review`, any ref that resolves in the checkout (`origin/main`, say), since the script diffs `BASE_BRANCH...HEAD` |
 | `EXTERNAL_REF` | opaque reference to the work in the host's system |
 | `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`); `write-pr` takes the ticket only |
+| `DIAGNOSTICS_FILE` | `implement` only, optional: commands, one per line, that the agent runs in Bash before the task and reports verbatim (exit status and output) under a `Diagnostics` heading in its final message. Reaches the prompt as `<diagnostics>` under the section text in `implement/diagnostics.md`; unset, the section is absent. For a host proving a runner control on one run, not for normal runs |
 | `THREADS_FILE` | `review` only: the pull request's existing discussion as JSON (shape below), fetched before the run; reaches the prompt as `<threads>` |
 | `OUTPUT_DIR` | where results go (default: the OS temp dir) |
 | `MODEL` | Claude model id (default in `prompt-args.ts`) |

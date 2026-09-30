@@ -4,7 +4,6 @@ import * as sandcastle from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 import { fail, required } from "../env";
 import { fileBlock, readRunInputs } from "../prompt-args";
-import { agent } from "../agent"
 
 const inputs = readRunInputs();
 const TICKET_FILE = required("TICKET_FILE");
@@ -16,7 +15,7 @@ const startSha = git("rev-parse HEAD");
 try {
   const result = await sandcastle.run({
     name: `implement ${inputs.externalRef}`,
-    agent: agent(inputs.model),
+    agent: sandcastle.claudeCode(inputs.model),
     sandbox: noSandbox(),
     logging: { type: "stdout" },
     promptFile: path.join(import.meta.dirname, "prompt.md"),

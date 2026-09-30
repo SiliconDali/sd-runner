@@ -8,8 +8,7 @@
 #                                              block is stripped
 #
 # Both modes install bubblewrap and socat and lift the AppArmor user-namespace
-# restriction (Ubuntu 24.04): CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap
-# even with the sandbox off.
+# restriction (Ubuntu 24.04), so the two modes differ only in the policy file.
 #
 # Environment:
 #   DESTDIR             where the two files go (default /etc/claude-code)

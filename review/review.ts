@@ -3,7 +3,6 @@ import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 import { fail, required } from "../env";
 import { readRunInputs } from "../prompt-args";
 import { runReview } from "./run-review";
-import { agent } from "../agent"
 
 const inputs = readRunInputs();
 const TICKET_FILE = required("TICKET_FILE");
@@ -18,7 +17,7 @@ try {
     specFile: SPEC_FILE,
     threadsFile: THREADS_FILE,
     cwd: process.cwd(),
-    agent: agent(inputs.model),
+    agent: sandcastle.claudeCode(inputs.model),
     sandbox: noSandbox(),
     maxAttempts: MAX_ATTEMPTS,
   });

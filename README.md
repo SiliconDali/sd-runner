@@ -66,9 +66,9 @@ Inline comments anchor to a single line. Validation drops, and logs with its bod
 ## Wiring a host workflow
 
 1. Check this repo out at a pinned commit and run `npm ci --prefix runner`.
-2. `sudo runner/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, which the env scrub needs). It writes to `/etc/claude-code/`; override with `DESTDIR`.
+2. `sudo runner/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, so they differ only in the policy file). It writes to `/etc/claude-code/`; override with `DESTDIR`.
 3. `runner/bin/neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load.
-4. From the checkout, run the scripts with the fork's own tsx, with only the Claude credential, `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` and the variables above in the step's environment:
+4. From the checkout, run the scripts with the fork's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
 
 ```
 node <fork>/runner/node_modules/.bin/tsx <fork>/runner/implement/implement.ts

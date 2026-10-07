@@ -1,6 +1,7 @@
 import * as sandcastle from "@ai-hero/sandcastle";
-import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import { noSandbox } from "../no-sandbox";
 import { fail, required } from "../env";
+import { failureReason } from "../failure-reason";
 import { readRunInputs } from "../prompt-args";
 import { runReview } from "./run-review";
 
@@ -28,5 +29,5 @@ try {
       `Review output did not validate after ${MAX_ATTEMPTS} attempts: ${error.message}`
     );
   }
-  fail(inputs.outputDir, error instanceof Error ? error.message : String(error));
+  fail(inputs.outputDir, failureReason(error));
 }

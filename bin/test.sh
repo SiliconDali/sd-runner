@@ -76,7 +76,7 @@ for mode in "--no-sandbox" ""; do
   # shellcheck disable=SC2086
   PATH="$stubs:$PATH" DESTDIR="$tmp/policy-deps" bash "$here/install-runner-policy.sh" $mode >/dev/null
   label="${mode:-sandbox}"
-  assert "${label#--}: installs bubblewrap" grep -q "apt-get install .*bubblewrap" "$stubs/calls"
+  assert "${label#--}: installs bubblewrap, socat, ripgrep" grep -Eq "apt-get install .*bubblewrap socat ripgrep" "$stubs/calls"
   assert "${label#--}: lifts userns restriction" grep -q "sysctl -w kernel.apparmor_restrict_unprivileged_userns=0" "$stubs/calls"
 done
 

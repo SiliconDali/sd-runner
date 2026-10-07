@@ -1,8 +1,9 @@
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import * as sandcastle from "@ai-hero/sandcastle";
-import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import { noSandbox } from "../no-sandbox";
 import { fail, optional, required } from "../env";
+import { failureReason } from "../failure-reason";
 import { fileBlock, readRunInputs } from "../prompt-args";
 import { diagnosticsBlock } from "./diagnostics";
 
@@ -47,7 +48,7 @@ try {
       `(sandcastle recorded ${result.commits.length}).`
   );
 } catch (error) {
-  fail(inputs.outputDir, error instanceof Error ? error.message : String(error));
+  fail(inputs.outputDir, failureReason(error));
 }
 
 function git(args: string): string {

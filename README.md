@@ -6,6 +6,7 @@ What an unattended run executes: the scripts that drive Claude Code through [san
 
 - `implement/`: implement a ticket on a branch and commit; `diagnostics.md` is the optional section a host can switch on for one run (below). `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked.
 - `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts`: wrappers over sandcastle's `run()` that resume the agent's session with feedback when structured output fails validation.
+- `no-sandbox.ts`: sandcastle's host provider with the agent's stderr forwarded to the log as it arrives; sandcastle's own keeps stderr for the error it raises on a non-zero exit, so a warning on a successful run would be lost. `failure-reason.ts`: the reason a run records when it fails on a thrown error, trimmed to sandcastle's header and the `error:` line when the CLI crashed, since the full dump is already in the log.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist and the credential unset for sandboxed commands) and `managed-mcp.json` (no servers).
 - `bin/`: `install-runner-policy.sh`, `neutralise-checkout-settings.sh`, `test.sh`.
 
@@ -67,7 +68,7 @@ Inline comments anchor to a single line. Validation drops, and logs with its bod
 ## Wiring a host workflow
 
 1. Check this repo out at a pinned commit and run `npm ci --prefix runner`.
-2. `sudo runner/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, so they differ only in the policy file). It writes to `/etc/claude-code/`; override with `DESTDIR`.
+2. `sudo runner/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, socat and ripgrep, so they differ only in the policy file). It writes to `/etc/claude-code/`; override with `DESTDIR`.
 3. `runner/bin/neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load.
 4. From the checkout, run the scripts with the fork's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
 

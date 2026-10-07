@@ -7,8 +7,9 @@
 #   sudo install-runner-policy.sh --no-sandbox controls only: the sandbox
 #                                              block is stripped
 #
-# Both modes install bubblewrap and socat and lift the AppArmor user-namespace
-# restriction (Ubuntu 24.04), so the two modes differ only in the policy file.
+# Both modes install bubblewrap, socat and ripgrep (the sandbox runtime needs
+# rg, Claude Code does not) and lift the AppArmor user-namespace restriction
+# (Ubuntu 24.04), so the two modes differ only in the policy file.
 #
 # Environment:
 #   DESTDIR             where the two files go (default /etc/claude-code)
@@ -36,7 +37,7 @@ mkdir -p "$destdir"
 if [ "${RUNNER_POLICY_DEPS:-1}" = 1 ]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq bubblewrap socat
+  apt-get install -y -qq bubblewrap socat ripgrep
   sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 fi
 

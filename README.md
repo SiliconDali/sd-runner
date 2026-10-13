@@ -1,6 +1,20 @@
-# runner
+# sd-runner
 
-What an unattended run executes: the scripts that drive Claude Code through [sandcastle](https://github.com/mattpocock/sandcastle), their prompts, the policy Claude Code reads above every other settings level, and the two shell scripts that install that policy and neutralise a checkout's project settings. A host workflow checks this repo out at a pinned commit and calls into here; nothing in this directory knows which tracker, repository or organisation the host serves.
+What an unattended run executes: the scripts that drive Claude Code through [sandcastle](https://github.com/mattpocock/sandcastle), their prompts, the policy Claude Code reads above every other settings level, the two shell scripts that install that policy and neutralise a checkout's project settings, and the skills a run loads when the code repo has none of its own. A host workflow checks this repo out at a full commit SHA and calls into here; nothing in this repo knows which tracker, repository or organisation the host serves.
+
+## Public repo
+
+This repo is public so a host needs no read credential and the team whose code a run touches can audit exactly what runs. So nothing committed here (code, prompts, docs, tests, fixtures, commit messages, changesets) names a client, a client's repository or a client's tracker. Examples use placeholders (`src/a.ts`, `dev`, `<sha>`); host-specific values arrive at run time through the inputs below.
+
+## Host contract
+
+The host is whatever runs the scripts: a CI workflow, a self-hosted runner, a person at a terminal. Between host and scripts there are only environment variables and files:
+
+- **In:** environment variables, and files whose paths those variables name. The host fetches everything a run reads (ticket, spec, siblings, review threads) before the run and writes it to files; the scripts never fetch.
+- **Out:** files in `OUTPUT_DIR`, which the host reads back and acts on after the script exits: pushing the branch, opening the pull request, posting the review, recording a failure.
+- **Never:** a tracker or code-host API call from anything in this repo, and never a GitHub token in a script's environment. The only credential a run holds is Claude's, which Claude Code inherits from the environment; the scripts do not read it.
+
+Outputs are neutral text and JSON a host maps onto its own system, with one known exception: the review body. `review.json` is already the body of GitHub's create-review API call, and its companion `replies.json` answers GitHub review comment ids, so the review's output stays GitHub-shaped until a second code host is real. Every new output, a fixer's replies included, uses a neutral shape the host maps. Inputs and outputs per script are listed below.
 
 ## Layout
 
@@ -9,6 +23,7 @@ What an unattended run executes: the scripts that drive Claude Code through [san
 - `no-sandbox.ts`: sandcastle's host provider with the agent's stderr forwarded to the log as it arrives; sandcastle's own keeps stderr for the error it raises on a non-zero exit, so a warning on a successful run would be lost. `failure-reason.ts`: the reason a run records when it fails on a thrown error, trimmed to sandcastle's header and the `error:` line when the CLI crashed, since the full dump is already in the log.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist and the credential unset for sandboxed commands) and `managed-mcp.json` (no servers).
 - `bin/`: `install-runner-policy.sh`, `neutralise-checkout-settings.sh`, `test.sh`.
+- `skills/`: `code-review/`, a copy of the upstream skill the `review` script runs, for a code repo that has no copy of its own; `skills/README.md` records the upstream commit, and `skills/LICENSE` is its MIT licence.
 
 ## Inputs and outputs
 
@@ -67,21 +82,26 @@ Inline comments anchor to a single line. Validation drops, and logs with its bod
 
 ## Wiring a host workflow
 
-1. Check this repo out at a pinned commit and run `npm ci --prefix runner`.
-2. `sudo runner/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, socat and ripgrep, so they differ only in the policy file). It writes to `/etc/claude-code/`; override with `DESTDIR`.
-3. `runner/bin/neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load.
-4. From the checkout, run the scripts with the fork's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
+1. Check this repo out at a full commit SHA, never a branch or tag, and run `npm ci` in it.
+2. `sudo <runner>/bin/install-runner-policy.sh` before the agent step (`--no-sandbox` for a controls-only run; both modes install bubblewrap, socat and ripgrep, so they differ only in the policy file). It writes to `/etc/claude-code/`; override with `DESTDIR`.
+3. `<runner>/bin/neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load.
+4. For `review`, copy `<runner>/skills/code-review` to `<checkout>/.claude/skills/code-review` unless the checkout has its own, and add it to `<checkout>/.git/info/exclude` so it never lands in a commit.
+5. From the checkout, run the scripts with this repo's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
 
 ```
-node <fork>/runner/node_modules/.bin/tsx <fork>/runner/implement/implement.ts
-node <fork>/runner/node_modules/.bin/tsx <fork>/runner/write-pr/write-pr.ts
-node <fork>/runner/node_modules/.bin/tsx <fork>/runner/review/review.ts
+node <runner>/node_modules/.bin/tsx <runner>/implement/implement.ts
+node <runner>/node_modules/.bin/tsx <runner>/write-pr/write-pr.ts
+node <runner>/node_modules/.bin/tsx <runner>/review/review.ts
 ```
 
 The host pushes the branch and opens the pull request itself, after the scripts finish, and posts `review`'s payloads the same way; the agent never holds a token for that.
 
 ## Tests
 
-`npm run check --prefix runner` runs the typecheck, the vitest suite (wrappers and the review flow with sandcastle's `run` mocked, output schemas, the diff anchor index, data blocks, prompt placeholders) and `bin/test.sh` (both shell scripts against throwaway git repos and a `DESTDIR`).
+`npm run check` runs the typecheck, the vitest suite (wrappers and the review flow with sandcastle's `run` mocked, output schemas, the diff anchor index, data blocks, prompt placeholders) and `bin/test.sh` (both shell scripts against throwaway git repos and a `DESTDIR`). CI runs it on every pull request and on `main`.
+
+## Changes
+
+Every change that alters what a run does carries a changeset (`npm run changeset`), updating a copied skill included. History before the move to this repo, blame included, comes from the skills fork's `runner/` directory; `Merge pull request SiliconDali/skills#N` commits refer to that repo's pull requests.
 
 The wrappers and their tests are adapted from [mattpocock/course-video-manager](https://github.com/mattpocock/course-video-manager) (MIT).

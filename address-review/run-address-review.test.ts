@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { run } from "@ai-hero/sandcastle";
 import { AddressReviewOutput } from "./output";
 import { runAddressReview, type AddressReviewRunOptions } from "./run-address-review";
@@ -89,7 +89,7 @@ function extracted(output: unknown) {
 const readJson = (file: string) => JSON.parse(fs.readFileSync(path.join(out, file), "utf8"));
 const outputExists = (file: string) => fs.existsSync(path.join(out, file));
 
-let warn: { mock: { calls: unknown[][] } };
+let warn: MockInstance;
 const logged = () => warn.mock.calls.map((c) => c.join(" ")).join("\n");
 
 beforeEach(() => {

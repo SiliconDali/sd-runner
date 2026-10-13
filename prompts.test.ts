@@ -4,7 +4,12 @@ import { describe, it, expect } from "vitest";
 import { PROMPT_ARG_KEYS } from "./prompt-args";
 
 const here = import.meta.dirname;
-const prompts = ["implement/prompt.md", "write-pr/prompt.md", "review/prompt.md"];
+const prompts = [
+  "implement/prompt.md",
+  "write-pr/prompt.md",
+  "review/prompt.md",
+  "address-review/prompt.md",
+];
 const read = (file: string) => fs.readFileSync(path.join(here, file), "utf8");
 
 describe("prompts", () => {
@@ -12,12 +17,15 @@ describe("prompts", () => {
     expect(read("write-pr/prompt.md")).toContain("<output>");
   });
 
-  it("review's extraction prompt expects an <output> block and takes no args", () => {
-    // It is sent inline on resume, where sandcastle allows no promptArgs.
-    const extract = read("review/extract.md");
-    expect(extract).toContain("<output>");
-    expect(extract).not.toMatch(/\{\{/);
-  });
+  it.each(["review/extract.md", "address-review/extract.md"])(
+    "%s expects an <output> block and takes no args",
+    (file) => {
+      // It is sent inline on resume, where sandcastle allows no promptArgs.
+      const extract = read(file);
+      expect(extract).toContain("<output>");
+      expect(extract).not.toMatch(/\{\{/);
+    }
+  );
 
   it("implement carries the optional diagnostics placeholder before the task", () => {
     const prompt = read("implement/prompt.md");

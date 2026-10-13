@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for the two runner scripts, run against throwaway directories.
+# Tests for the runner scripts, run against throwaway directories.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -86,6 +86,54 @@ DESTDIR="$tmp/x" RUNNER_POLICY_DEPS=0 bash "$here/install-runner-policy.sh" --bo
 code=$?
 set -e
 assert "unknown flag exits 2" test "$code" = 2
+
+# prepare-host: a throwaway checkout, policy and Claude Code into temp dirs,
+# sudo stubbed to record its call and run it unprivileged
+sudo_stub="$tmp/sudo-exec"; mkdir -p "$sudo_stub"
+printf '#!/usr/bin/env bash\necho "$*" >> "%s/calls"\nexec "$@"\n' "$sudo_stub" > "$sudo_stub/sudo"
+chmod +x "$sudo_stub/sudo"
+repo="$tmp/host-code"
+new_repo "$repo"
+mkdir -p "$repo/.claude"
+printf '{"hooks":{"PreToolUse":[{"command":"touch /tmp/marker"}]}}\n' > "$repo/.claude/settings.json"
+git -C "$repo" add -A && git -C "$repo" commit -q -m init
+policy="$tmp/host-policy"; bindir="$tmp/host-bin"; mkdir -p "$bindir"
+locked="$(jq -r '.packages["node_modules/@anthropic-ai/claude-code"].version' "$here/../package-lock.json")"
+hosts="$(jq -r '.sandbox.network.allowedDomains | join(", ")' "$here/../policy/managed-settings.json")"
+set +e
+out="$(PATH="$sudo_stub:$PATH" RUNNER_POLICY_DIR="$policy" CLAUDE_BIN_DIR="$bindir" RUNNER_POLICY_DEPS=0 \
+  bash "$here/prepare-host.sh" "$repo" 2>&1)"
+code=$?
+set -e
+assert "prepare-host: exits 0" test "$code" = 0
+assert "prepare-host: Claude Code linked at the locked version" bash -c "'$bindir/claude' --version | grep -q '^$locked '"
+assert "prepare-host: policy installed with the sandbox on" test "$(jq '.sandbox.enabled' "$policy/managed-settings.json")" = "true"
+assert "prepare-host: managed mcp installed" test "$(jq -c . "$policy/managed-mcp.json")" = '{"mcpServers":{}}'
+assert "prepare-host: policy installed through sudo" grep -q "install-runner-policy.sh" "$sudo_stub/calls"
+assert "prepare-host: sandbox line word for word" grep -qxF "Configured policy: Claude Code sandbox on, allowed hosts: $hosts. Sandcastle's 'Sandbox: no-sandbox' banner below is its own container provider, not this." <<<"$out"
+assert "prepare-host: settings neutralised" test "$(cat "$repo/.claude/settings.json")" = "{}"
+assert "prepare-host: .sandcastle/ excluded" grep -qxF ".sandcastle/" "$repo/.git/info/exclude"
+mkdir -p "$repo/.sandcastle" && touch "$repo/.sandcastle/log"
+assert "prepare-host: checkout status clean" test -z "$(git -C "$repo" status --porcelain)"
+PATH="$sudo_stub:$PATH" RUNNER_POLICY_DIR="$policy" CLAUDE_BIN_DIR="$bindir" RUNNER_POLICY_DEPS=0 \
+  bash "$here/prepare-host.sh" "$repo" >/dev/null 2>&1
+assert "prepare-host: second run adds no duplicate exclude" test "$(grep -cxF ".sandcastle/" "$repo/.git/info/exclude")" = 1
+
+# prepare-host: the default targets are Claude Code's managed settings directory
+# and a directory on PATH; sudo is stubbed to record only, so nothing is written
+sudo_rec="$tmp/sudo-record"; mkdir -p "$sudo_rec"
+printf '#!/usr/bin/env bash\necho "$*" >> "%s/calls"\n' "$sudo_rec" > "$sudo_rec/sudo"
+chmod +x "$sudo_rec/sudo"
+PATH="$sudo_rec:$PATH" RUNNER_POLICY_DEPS=0 bash "$here/prepare-host.sh" "$repo" >/dev/null 2>&1 || true
+assert "prepare-host: default policy target is /etc/claude-code" grep -q "DESTDIR=/etc/claude-code .*install-runner-policy.sh" "$sudo_rec/calls"
+assert "prepare-host: default Claude Code link is /usr/local/bin/claude" grep -q "ln -sf .* /usr/local/bin/claude$" "$sudo_rec/calls"
+
+# prepare-host: no checkout argument
+set +e
+bash "$here/prepare-host.sh" >/dev/null 2>&1
+code=$?
+set -e
+assert "prepare-host: missing checkout exits 2" test "$code" = 2
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures shell test(s) failed" >&2

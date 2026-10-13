@@ -1,0 +1,9 @@
+# skills
+
+Skills a run loads that the code repo may not carry itself. A host copies a skill directory into the checkout's `.claude/skills/` before the agent step, unless the checkout already has its own copy, and keeps the copy out of the commit.
+
+| Skill | Upstream | Commit |
+| --- | --- | --- |
+| `code-review/` | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/engineering/code-review/` | [`5c89081d4bbeb3d039a42093653f90bb698d780e`](https://github.com/mattpocock/skills/tree/5c89081d4bbeb3d039a42093653f90bb698d780e/skills/engineering/code-review) |
+
+Each directory is a byte-for-byte copy of the upstream directory at that commit; `LICENSE` is upstream's MIT licence, which covers them. Do not edit a copy here: updating one means copying the upstream directory at a newer commit, updating its row, and adding a changeset, so a review's behaviour only changes with a pin that someone chose.

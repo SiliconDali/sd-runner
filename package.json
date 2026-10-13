@@ -1,21 +1,27 @@
 {
-  "name": "runner",
+  "name": "sd-runner",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Unattended run scripts, prompts and runner policy used by workflows that drive these skills",
+  "description": "Unattended run scripts, prompts and runner policy: env and files in, files out, no tracker or code-host API calls",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SiliconDali/sd-runner"
+  },
   "scripts": {
     "test": "vitest run",
     "test:shell": "bash bin/test.sh",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test && npm run test:shell"
+    "check": "npm run typecheck && npm test && npm run test:shell",
+    "changeset": "changeset"
   },
   "dependencies": {
     "@ai-hero/sandcastle": "0.12.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@types/node": "^22",
     "tsx": "^4.23.15",
     "typescript": "^5",

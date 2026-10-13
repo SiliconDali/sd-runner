@@ -47,9 +47,33 @@ export function validateReview(
     }
   }
 
+  const replies = validateReplies(output.replies, threads);
+  dropped.push(...replies.dropped);
+
+  return {
+    summary: output.summary,
+    comments,
+    replies: replies.replies,
+    dropped,
+  };
+}
+
+export interface ValidatedReplies {
+  readonly replies: ThreadReply[];
+  readonly dropped: Dropped[];
+}
+
+/**
+ * Keep only replies to a comment in one of the fetched review threads,
+ * retargeted at the thread's first comment, the id a replies endpoint wants.
+ * Replies that land on the same thread are joined into one, in order; the
+ * rest are returned in `dropped` with the reason.
+ */
+export function validateReplies(items: readonly ThreadReply[], threads: Threads): ValidatedReplies {
+  const dropped: Dropped[] = [];
   const roots = threadRoots(threads);
   const replies = new Map<number, string>();
-  for (const item of output.replies) {
+  for (const item of items) {
     const root = roots.get(item.comment_id);
     if (root === undefined) {
       dropped.push({
@@ -62,11 +86,5 @@ export function validateReview(
       replies.set(root, earlier === undefined ? item.body : `${earlier}\n\n${item.body}`);
     }
   }
-
-  return {
-    summary: output.summary,
-    comments,
-    replies: [...replies].map(([comment_id, body]) => ({ comment_id, body })),
-    dropped,
-  };
+  return { replies: [...replies].map(([comment_id, body]) => ({ comment_id, body })), dropped };
 }

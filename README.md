@@ -15,11 +15,11 @@ The host is whatever runs the scripts: a CI workflow, a self-hosted runner, a pe
 - **Out:** files in `OUTPUT_DIR`, which the host reads back and acts on after the script exits: pushing the branch, opening the pull request, posting the review, recording a failure.
 - **Never:** a tracker or code-host API call from anything in this repo, and never a GitHub token in a script's environment. The only credential a run holds is Claude's, which Claude Code inherits from the environment; the scripts do not read it.
 
-Outputs are neutral text and JSON a host maps onto its own system, with one known exception: the review body. `review.json` is already the body of GitHub's create-review API call, and its companion `replies.json` answers GitHub review comment ids, so the review's output stays GitHub-shaped until a second code host is real. Every new output, a fixer's replies included, uses a neutral shape the host maps. Inputs and outputs per script are listed below.
+Outputs are neutral text and JSON a host maps onto its own system, with one known exception: the review body. `review.json` is already the body of GitHub's create-review API call, so the review's output stays GitHub-shaped until a second code host is real. `replies.json`, which `review` and `address-review` both write, is host-neutral: each entry is the id the host gave a comment in the threads file plus a body, and the host maps it onto its own reply endpoint. Inputs and outputs per script are listed below.
 
 ## Layout
 
-- `implement/`: implement a ticket on a branch and commit; `diagnostics.md` is the optional section a host can switch on for one run (below). `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked.
+- `implement/`: implement a ticket on a branch and commit; `diagnostics.md` is the optional section a host can switch on for one run (below). `write-pr/`: draft a pull request title and description from the diff, as structured output. `review/`: review a pull request's branch with the `code-review` skill, commit fixes at most once, and emit the review as payloads the host posts; `review.ts` only reads the environment and records failures, so the flow in `run-review.ts` can be tested against a throwaway repo with sandcastle mocked. `address-review/`: fix or decline each unresolved review thread on a pull request's branch, commit at most once, and emit one reply per thread for the host to post; the same split, `address-review.ts` over `run-address-review.ts`.
 - `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts`: wrappers over sandcastle's `run()` that resume the agent's session with feedback when structured output fails validation.
 - `no-sandbox.ts`: sandcastle's host provider with the agent's stderr forwarded to the log as it arrives; sandcastle's own keeps stderr for the error it raises on a non-zero exit, so a warning on a successful run would be lost. `failure-reason.ts`: the reason a run records when it fails on a thrown error, trimmed to sandcastle's header and the `error:` line when the CLI crashed, since the full dump is already in the log.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist and the credential unset for sandboxed commands) and `managed-mcp.json` (no servers).
@@ -28,7 +28,7 @@ Outputs are neutral text and JSON a host maps onto its own system, with one know
 
 ## Inputs and outputs
 
-Each script reads its inputs from the environment and runs from the checkout's root. All read `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` and `MODEL`; `implement` also reads `TICKET_FILE`, `SPEC_FILE` and `SIBLINGS_FILE` (and `DIAGNOSTICS_FILE` if set), `review` reads `TICKET_FILE`, `SPEC_FILE` and `THREADS_FILE`, and `write-pr` reads `TICKET_FILE` only:
+Each script reads its inputs from the environment and runs from the checkout's root. All read `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` and `MODEL`; `implement` also reads `TICKET_FILE`, `SPEC_FILE` and `SIBLINGS_FILE` (and `DIAGNOSTICS_FILE` if set), `review` and `address-review` read `TICKET_FILE`, `SPEC_FILE` and `THREADS_FILE`, and `write-pr` reads `TICKET_FILE` only:
 
 | Variable | Meaning |
 | --- | --- |
@@ -37,11 +37,11 @@ Each script reads its inputs from the environment and runs from the checkout's r
 | `EXTERNAL_REF` | opaque reference to the work in the host's system |
 | `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`); `write-pr` takes the ticket only |
 | `DIAGNOSTICS_FILE` | `implement` only, optional: commands, one per line, that the agent runs in Bash before the task and reports verbatim (exit status and output) under a `Diagnostics` heading in its final message. Reaches the prompt as `<diagnostics>` under the section text in `implement/diagnostics.md`; unset, the section is absent. For a host proving a runner control on one run, not for normal runs |
-| `THREADS_FILE` | `review` only: the pull request's existing discussion as JSON (shape below), fetched before the run; reaches the prompt as `<threads>` |
+| `THREADS_FILE` | `review` and `address-review`: the pull request's existing discussion as JSON (shape below), fetched before the run; reaches the prompt as `<threads>` |
 | `OUTPUT_DIR` | where results go (default: the OS temp dir) |
 | `MODEL` | Claude model id (default in `prompt-args.ts`) |
 
-The Claude credential is not read by the scripts: Claude Code inherits it from the step's environment. Outputs land in `OUTPUT_DIR`: `pr_title.txt` and `pr_description.txt` from `write-pr`, `review.json` and `replies.json` from `review`, and `failure_reason.txt` from any script that fails, for the host to post. A failed script exits 1 after writing `failure_reason.txt`; a missing required variable exits 1 without it.
+The Claude credential is not read by the scripts: Claude Code inherits it from the step's environment. Outputs land in `OUTPUT_DIR`: `pr_title.txt` and `pr_description.txt` from `write-pr`, `review.json` and `replies.json` from `review`, `replies.json` and `summary.md` from `address-review`, and `failure_reason.txt` from any script that fails, for the host to post. A failed script exits 1 after writing `failure_reason.txt`; a missing required variable exits 1 without it.
 
 ## Review
 
@@ -81,6 +81,17 @@ Outputs:
 
 Inline comments anchor to a single line. Validation drops, and logs with its body as `Dropped comment: ...` or `Dropped reply: ...`, every inline comment whose file is not in the diff or whose line is not an added or context line of a hunk on its side (`RIGHT` unless the agent chose `LEFT` for a deleted line), and every reply whose `comment_id` is not in a fetched review thread. Conversation comments cannot be replied to inline; the agent answers them in the summary.
 
+## Address review
+
+`address-review` takes a branch with unresolved review threads and fixes or declines each one. A correctness claim gets a test that breaks on the bug first: if the test fails, the code is fixed; if it passes, the thread is declined citing the test. A documented-standard breach is fixed. A request for work the ticket or spec calls for but the pull request does not do is declined as left for the dev, so a comment never grows the pull request's scope. Anything else the agent disagrees with is declined with the reason. Every fix lands in a single commit in the code repo's own convention on top of the branch as it was; zero commits is valid, and more than one, or rewriting the commits already there, fails the run. Conversation comments are answered in the summary only.
+
+It reads `THREADS_FILE` in the shape above and fails before running the agent when it is malformed or holds no unresolved review threads; a host should check that before it spends a run. Outputs:
+
+- `replies.json`: the review's shape, one entry per thread the agent answered, aimed at the thread's first comment. Each body begins `Fixed in \`<sha>\`` or `Not changed:`. Replies the agent aimed at the same thread are joined; a reply to an id outside the fetched threads is dropped and logged as `Dropped reply: ...`; a fetched thread with no reply is logged as `Unanswered thread: ...`. The script never resolves a thread or emits a review, and a host should not resolve threads on its behalf.
+- `summary.md`: what the commit changed, what was declined and why, and the answers to conversation comments, for the host to post where it sees fit.
+
+Push the fix commit, when there is one, before posting the replies.
+
 ## Wiring a host workflow
 
 1. Check this repo out at a full commit SHA, never a branch or tag, and run `npm ci` in it.
@@ -89,20 +100,21 @@ Inline comments anchor to a single line. Validation drops, and logs with its bod
    - runs `install-runner-policy.sh`, which writes the policy to `/etc/claude-code/` and installs bubblewrap, socat and ripgrep (`--no-sandbox`, run directly, gives a controls-only policy; both modes install the same packages);
    - prints one line stating the configured sandbox, beginning `Configured policy:`, for the run log;
    - runs `neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load, and excludes sandcastle's `.sandcastle/` from git.
-3. For `review`, copy `<runner>/skills/code-review` to `<checkout>/.claude/skills/code-review` unless the checkout has its own, and add it to `<checkout>/.git/info/exclude` so it never lands in a commit.
+3. For `review`, copy `<runner>/skills/code-review` to `<checkout>/.claude/skills/code-review` unless the checkout has its own, and add it to `<checkout>/.git/info/exclude` so it never lands in a commit. `address-review` runs no skill.
 4. From the checkout, run the scripts with this repo's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
 
 ```
 node <runner>/node_modules/.bin/tsx <runner>/implement/implement.ts
 node <runner>/node_modules/.bin/tsx <runner>/write-pr/write-pr.ts
 node <runner>/node_modules/.bin/tsx <runner>/review/review.ts
+node <runner>/node_modules/.bin/tsx <runner>/address-review/address-review.ts
 ```
 
-The host pushes the branch and opens the pull request itself, after the scripts finish, and posts `review`'s payloads the same way; the agent never holds a token for that.
+The host pushes the branch and opens the pull request itself, after the scripts finish, and posts `review`'s and `address-review`'s payloads the same way; the agent never holds a token for that.
 
 ## Tests
 
-`npm run check` runs the typecheck, the vitest suite (wrappers and the review flow with sandcastle's `run` mocked, output schemas, the diff anchor index, data blocks, prompt placeholders) and `bin/test.sh` (the shell scripts against throwaway git repos, with the policy and Claude Code's link in temp dirs and `sudo` stubbed). CI runs it on every pull request and on `main`.
+`npm run check` runs the typecheck, the vitest suite (wrappers, the review and address-review flows with sandcastle's `run` mocked against throwaway repos, output schemas, the diff anchor index, data blocks, prompt placeholders) and `bin/test.sh` (the shell scripts against throwaway git repos, with the policy and Claude Code's link in temp dirs and `sudo` stubbed). CI runs it on every pull request and on `main`.
 
 ## Changes
 

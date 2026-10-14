@@ -49,13 +49,13 @@ echo "$version"
 as_root env DESTDIR="$policy_dir" RUNNER_POLICY_DEPS="${RUNNER_POLICY_DEPS:-1}" \
   bash "$here/install-runner-policy.sh"
 
-# Sandcastle's banner later in the run says "Sandbox: no-sandbox". That is its
-# own container provider, off by design in the run scripts. Claude Code's
-# sandbox is what the policy just installed configures.
+# Sandcastle's banner later in the run says "Sandbox: no-sandbox": its own
+# Docker container, which the run scripts switch off by design. The Claude Code
+# sandbox is what the policy just installed configures, and the line says so.
 f="$policy_dir/managed-settings.json"
 if [ "$(jq -r '.sandbox.enabled // false' "$f")" = "true" ]; then
   hosts=$(jq -r '.sandbox.network.allowedDomains // [] | join(", ")' "$f")
-  echo "Configured policy: Claude Code sandbox on, allowed hosts: ${hosts:-none}. Sandcastle's 'Sandbox: no-sandbox' banner below is its own container provider, not this."
+  echo "Configured policy: Claude Code sandbox on, allowed hosts: ${hosts:-none}. Sandcastle's 'Sandbox: no-sandbox' banner further down refers to Sandcastle's own Docker container, which the run scripts switch off by design; every command the agent runs goes through the Claude Code sandbox above."
 else
   echo "Configured policy: Claude Code sandbox OFF."
 fi

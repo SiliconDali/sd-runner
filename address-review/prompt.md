@@ -29,4 +29,4 @@ Run the repository's documented checks (typecheck, lint, tests) before committin
 
 # Report
 
-End with a plain account: for every thread, whether you fixed it or not and why; what the fix commit changed, with its short SHA from `git rev-parse --short HEAD`; and your answer to each conversation comment. Every thread gets one reply, beginning `Fixed in \`<sha>\`` or `Not changed:`. You will be asked for it as structured output next.
+End with a plain account, the hand-off to the developer and the one place that says what is left for them: for every thread, whether you fixed it or not and why; what the fix commit changed, with its short SHA from `git rev-parse --short HEAD`; and your answer to each conversation comment. Every thread gets one reply, beginning `Fixed in \`<sha>\`` or `Not changed:`. You will be asked for it as structured output next.

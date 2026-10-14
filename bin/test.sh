@@ -63,6 +63,7 @@ assert "no-sandbox: managed mcp empty" test "$(jq -c . "$dest/managed-mcp.json")
 dest="$tmp/policy-on"
 DESTDIR="$dest" RUNNER_POLICY_DEPS=0 bash "$here/install-runner-policy.sh" >/dev/null
 assert "sandbox: strict allowlist on" test "$(jq '.sandbox.network.strictAllowlist' "$dest/managed-settings.json")" = "true"
+assert "sandbox: npm cache writable" test "$(jq -c '.sandbox.filesystem.allowWrite' "$dest/managed-settings.json")" = '["~/.npm"]'
 assert "sandbox: managed mcp empty" test "$(jq -c . "$dest/managed-mcp.json")" = '{"mcpServers":{}}'
 
 # install: deps are installed in both modes (they differ only in the policy file)

@@ -111,7 +111,7 @@ assert "prepare-host: Claude Code linked at the locked version" bash -c "'$bindi
 assert "prepare-host: policy installed with the sandbox on" test "$(jq '.sandbox.enabled' "$policy/managed-settings.json")" = "true"
 assert "prepare-host: managed mcp installed" test "$(jq -c . "$policy/managed-mcp.json")" = '{"mcpServers":{}}'
 assert "prepare-host: policy installed through sudo" grep -q "install-runner-policy.sh" "$sudo_stub/calls"
-assert "prepare-host: sandbox line word for word" grep -qxF "Configured policy: Claude Code sandbox on, allowed hosts: $hosts. Sandcastle's 'Sandbox: no-sandbox' banner below is its own container provider, not this." <<<"$out"
+assert "prepare-host: sandbox line word for word" grep -qxF "Configured policy: Claude Code sandbox on, allowed hosts: $hosts. Sandcastle's 'Sandbox: no-sandbox' banner further down refers to Sandcastle's own Docker container, which the run scripts switch off by design; every command the agent runs goes through the Claude Code sandbox above." <<<"$out"
 assert "prepare-host: settings neutralised" test "$(cat "$repo/.claude/settings.json")" = "{}"
 assert "prepare-host: .sandcastle/ excluded" grep -qxF ".sandcastle/" "$repo/.git/info/exclude"
 mkdir -p "$repo/.sandcastle" && touch "$repo/.sandcastle/log"

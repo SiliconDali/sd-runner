@@ -45,7 +45,7 @@ The Claude credential is not read by the scripts: Claude Code inherits it from t
 
 ## Review
 
-`review` runs the `code-review` skill against `BASE_BRANCH`. Correctness findings get a test that breaks on the bug and a fix; every fix lands in a single commit in the code repo's own convention on top of the branch as it was, and more than one commit, or rewriting the commits already there (amend, reset, rebase), fails the run. Missing spec coverage is reported, never coded. A second, resumed pass extracts the review as structured output, which the script validates against `git diff BASE_BRANCH...HEAD` taken after the fix commit, so a comment can sit on a line the fix added.
+`review` runs the `code-review` skill against `BASE_BRANCH`. Correctness findings get a test that breaks on the bug and a fix; every fix lands in a single commit in the code repo's own convention on top of the branch as it was, and more than one commit, or rewriting the commits already there (amend, reset, rebase), fails the run. An inline thread is opened only for a finding that needs action after the run (wrong behaviour no test could express, a standards breach that is not mechanical to fix, spec coverage missing or wrong, which is never coded); smells and other judgement calls are decided in the body, one line each. The body is a `Checked` paragraph, then `Fixed`, `Threads` and `Judgement calls` sections where there is something to put in them. A second, resumed pass extracts the review as structured output, which the script validates against `git diff BASE_BRANCH...HEAD` taken after the fix commit, so a comment can sit on a line the fix added.
 
 `THREADS_FILE` holds unresolved review threads, each with its comments first to last, and the conversation comments. Extra fields are ignored; write `{"threads": [], "comments": []}` when there are none:
 
@@ -88,7 +88,7 @@ Inline comments anchor to a single line. Validation drops, and logs with its bod
 It reads `THREADS_FILE` in the shape above and fails before running the agent when it is malformed or holds no unresolved review threads; a host should check that before it spends a run. Outputs:
 
 - `replies.json`: the review's shape, one entry per thread the agent answered, aimed at the thread's first comment. Each body begins `Fixed in \`<sha>\`` or `Not changed:`. Replies the agent aimed at the same thread are joined; a reply to an id outside the fetched threads is dropped and logged as `Dropped reply: ...`; a fetched thread with no reply is logged as `Unanswered thread: ...`. The script never resolves a thread or emits a review, and a host should not resolve threads on its behalf.
-- `summary.md`: what the commit changed, what was declined and why, and the answers to conversation comments, for the host to post where it sees fit.
+- `summary.md`: the hand-off to the developer: what the commit changed, what is left for a human (declined threads with the reason, and work the spec calls for that the pull request does not do) and the answers to conversation comments, for the host to post where it sees fit.
 
 Push the fix commit, when there is one, before posting the replies.
 

@@ -16,7 +16,7 @@ Read `GLOSSARY.md` and the ADRs under `docs/adr/` where they exist, then the rep
 
 # Address each thread
 
-A thread is open work when its last comment is not yet a reply of the kind you give (`Fixed in` or `Not changed:`); a thread that ends on one was addressed by an earlier round and stays as it is, unless a comment after that reply asks for something new. Take the threads that are open work one at a time. Decide what kind of request each one is and act accordingly:
+A thread is open work when its last comment is not a reply of the kind you give (`Fixed in` or `Not changed:`); one that ends on such a reply was addressed by an earlier round and stays as it is. Take the open work one thread at a time. Decide what kind of request each one is and act accordingly:
 
 - **Correctness** (the comment claims the behaviour is wrong): first write a test that fails because of the claimed bug. If it fails, fix the code until it passes. If it passes, do not change the code; decline, citing the test that passes.
 - **Standards** (a breach of a documented standard or convention of this repository): fix it.
@@ -29,4 +29,4 @@ Run the repository's documented checks (typecheck, lint, tests) before committin
 
 # Report
 
-End with a plain account, the hand-off to the developer and the one place that says what is left for them: for every thread you addressed, whether you fixed it or not and why; what the fix commit changed, with its short SHA from `git rev-parse --short HEAD`; and your answer to each conversation comment. Every thread you addressed gets one reply, beginning `Fixed in \`<sha>\`` or `Not changed:`; a thread addressed by an earlier round gets none. You will be asked for it as structured output next.
+End with a plain account, the hand-off to the developer and the one place that says what is left for them: for every thread you addressed, whether you fixed it or not and why; what the fix commit changed, with its short SHA from `git rev-parse --short HEAD`; and your answer to each conversation comment. Every thread you addressed gets one reply, beginning `Fixed in \`<sha>\`` or `Not changed:`. You will be asked for it as structured output next.

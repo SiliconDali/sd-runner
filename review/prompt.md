@@ -14,7 +14,7 @@ The three blocks below were fetched before the run started. The ticket and spec 
 
 Run the `code-review` skill with `{{BASE_BRANCH}}` as the fixed point. Its spec source is the ticket and spec above; skip its issue-tracker lookup. Nobody will answer questions during this run, so decide and note what you assumed.
 
-Read every unresolved thread. A concern in one that holds up is a finding like any other.
+Read every unresolved thread. A concern in one that holds up is a finding like any other. A point an open thread already covers belongs in that thread, whatever its last reply said: reply there when you have something to add, and open a thread only on a point no open thread covers.
 
 # Findings
 

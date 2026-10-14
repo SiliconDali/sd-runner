@@ -282,6 +282,38 @@ describe("runAddressReview", () => {
     expect(readJson("replies.json")).toEqual([{ comment_id: 10, body: "Not changed: fine." }]);
   });
 
+  it("does not count a thread that already ends on an earlier round's reply as unanswered", async () => {
+    const withEarlier = {
+      ...threads,
+      threads: [
+        ...threads.threads,
+        {
+          path: "src/a.ts",
+          line: 9,
+          comments: [
+            { id: 30, author: "reviewer", body: "Drop this." },
+            { id: 31, author: "bot", body: "Not changed: out of scope." },
+          ],
+        },
+      ],
+    };
+    fs.writeFileSync(path.join(out, "threads.json"), JSON.stringify(withEarlier));
+    mockRun.mockResolvedValueOnce(produced()).mockResolvedValueOnce(
+      extracted({
+        summary: "ok",
+        replies: [
+          { comment_id: 10, body: "Not changed: fine." },
+          { comment_id: 20, body: "Fixed in `abc1234`: renamed." },
+        ],
+      })
+    );
+
+    const result = await runAddressReview(options());
+
+    expect(result.unanswered).toEqual([]);
+    expect(logged()).not.toContain("comment 30");
+  });
+
   it("fails before running the agent when there are no unresolved review threads", async () => {
     fs.writeFileSync(
       path.join(out, "threads.json"),

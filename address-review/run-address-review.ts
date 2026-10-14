@@ -44,6 +44,13 @@ export interface AddressReviewRunResult {
  * shape, one entry per thread at its first comment) and `summary.md` to the
  * output dir; throws on any failure, leaving the caller to record it.
  */
+const REPLY_OPENERS = ["Fixed in", "Not changed:"];
+
+function addressedEarlier(thread: { comments: { body: string }[] }): boolean {
+  const last = thread.comments[thread.comments.length - 1]!.body;
+  return REPLY_OPENERS.some((opener) => last.startsWith(opener));
+}
+
 export async function runAddressReview(
   options: AddressReviewRunOptions
 ): Promise<AddressReviewRunResult> {
@@ -109,7 +116,10 @@ export async function runAddressReview(
     console.warn(`Dropped ${dropped.kind}: ${dropped.reason}: ${dropped.item.body}`);
   }
   const answered = new Set(validated.replies.map((reply) => reply.comment_id));
+  // A thread that ends on a reply of the fixer's kind was addressed by an
+  // earlier round and the prompt leaves it alone, so it is not unanswered.
   const unanswered: UnansweredThread[] = threads.threads
+    .filter((thread) => !addressedEarlier(thread))
     .map((thread) => ({ comment_id: thread.comments[0]!.id, path: thread.path, line: thread.line }))
     .filter((thread) => !answered.has(thread.comment_id));
   for (const thread of unanswered) {

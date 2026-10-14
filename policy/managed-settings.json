@@ -13,6 +13,9 @@
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "allowWrite": ["~/.npm"]
+    },
     "network": {
       "strictAllowlist": true,
       "allowedDomains": ["registry.npmjs.org"]

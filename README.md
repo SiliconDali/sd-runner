@@ -46,6 +46,8 @@ The Claude credential is not read by the scripts: Claude Code inherits it from t
 
 The `implement` and `address-review` prompts read the code repo's `GLOSSARY.md` and `docs/adr/` where they exist.
 
+The run log shows the agent's text and its Bash, WebSearch, WebFetch and Agent calls, the tools Sandcastle prints. Skill, Read and Edit calls are not printed, so a skill's use shows only in what the agent says and does.
+
 ## Implement
 
 `implement` works the ticket on `BRANCH` by the `implement` skill, building every change through the `tdd` skill's red → green loop at the seams the spec and ticket name, and makes one or more commits in the code repo's own convention; a run that ends with none fails with `Agent finished without committing on the branch.` A successful run writes nothing to `OUTPUT_DIR`. Uncommitted changes the agent leaves behind are logged as a warning and stay out of the commits the host pushes.

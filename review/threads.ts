@@ -37,7 +37,7 @@ export function parseThreads(text: string): Threads {
  * say who acts on it next, and a reply's first words say what the bot did.
  */
 export const OPENERS = {
-  /** A review thread a bot acts on this run: a correctness or standards finding. */
+  /** A review thread the next fix run acts on: a correctness or standards finding. */
   fixRequired: "Fix required:",
   /**
    * A thread written to the developer: a spec gap, a spec/ticket conflict, or a
@@ -59,7 +59,7 @@ const opens = (body: string, opener: string) => body.trimStart().startsWith(open
 const firstBody = (thread: Thread) => thread.comments[0]!.body;
 const lastBody = (thread: Thread) => thread.comments[thread.comments.length - 1]!.body;
 
-/** True when the thread is addressed to a human: no bot acts on it. */
+/** True when the thread was opened as a decision for the developer (`Decision required:`). */
 export function forDecision(thread: Thread): boolean {
   return opens(firstBody(thread), OPENERS.decisionRequired);
 }

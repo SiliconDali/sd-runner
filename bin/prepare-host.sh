@@ -7,10 +7,11 @@
 #
 #   prepare-host.sh <checkout-root>
 #
-# Environment, for tests only:
-#   RUNNER_POLICY_DIR   policy target (default /etc/claude-code)
-#   CLAUDE_BIN_DIR      where `claude` is linked (default /usr/local/bin)
-#   RUNNER_POLICY_DEPS  passed to install-runner-policy.sh
+# Environment:
+#   RUNNER_POLICY_DIR   policy target (default /etc/claude-code), tests only
+#   CLAUDE_BIN_DIR      where `claude` is linked (default /usr/local/bin), tests only
+#   RUNNER_POLICY_DEPS  passed to install-runner-policy.sh: 0 skips apt-get and
+#                       sysctl (tests, hosts that already have both)
 set -euo pipefail
 
 if [ $# -ne 1 ]; then

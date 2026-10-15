@@ -28,7 +28,7 @@ Then read `OUTPUT_DIR` and act on it: push, open the pull request, post. The ful
 ## How a run flows
 
 ```mermaid
-flowchart LR
+flowchart TD
   F[host: fetch ticket, spec,<br/>threads to files] --> I[implement]
   I --> P[host: push branch]
   P --> W[write-pr]
@@ -37,9 +37,11 @@ flowchart LR
   R --> RP[host: push fix commit,<br/>post review.json]
   RP --> A[address-review]
   A --> AP[host: push fix commit,<br/>post replies.json]
+  classDef host fill:#eee,stroke:#999,color:#333
+  class F,P,O,RP,AP host
 ```
 
-The scripts never call a tracker or code-host API and never hold a GitHub token. The host fetches before, and pushes and posts after.
+Grey boxes are the host's steps. The scripts never call a tracker or code-host API and never hold a GitHub token: the host fetches before, and pushes and posts after.
 
 ## Scripts
 

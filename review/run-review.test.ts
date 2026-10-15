@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { run } from "@ai-hero/sandcastle";
-import { ReviewOutput } from "./output";
+import { ConfirmOutput, ReviewOutput } from "./output";
 import { runReview, type ReviewRunOptions } from "./run-review";
 
 vi.mock("@ai-hero/sandcastle", async (importOriginal) => {
@@ -74,15 +74,16 @@ function produced() {
 }
 
 /** Sandcastle hands back the schema's parsed value, defaults applied. */
-function extracted(output: unknown) {
+function extracted(output: unknown, schema: { parse(value: unknown): unknown } = ReviewOutput) {
   return {
     iterations: [{ sessionId: "sess-2" }],
     stdout: "",
     commits: [],
     branch: "feat/x",
-    output: ReviewOutput.parse(output),
+    output: schema.parse(output),
   } as never;
 }
+const confirmed = (output: unknown) => extracted(output, ConfirmOutput);
 
 const readJson = (file: string) => JSON.parse(fs.readFileSync(path.join(out, file), "utf8"));
 
@@ -122,15 +123,11 @@ describe("runReview", () => {
         extracted({
           summary: "## Review\n\nOne fix committed.",
           comments: [
-            { path: "src/a.ts", line: 2, body: "Kept." },
-            { path: "src/a.test.ts", line: 1, body: "Added by the fix." },
+            { path: "src/a.ts", line: 2, body: "Fix required: kept." },
+            { path: "src/a.test.ts", line: 1, body: "Decision required: added by the fix." },
+            { path: "src/a.ts", line: 3, body: "No opener." },
             { path: "src/a.ts", line: 50, body: "Hallucinated line." },
             { path: "src/nowhere.ts", line: 1, body: "Hallucinated file." },
-          ],
-          replies: [
-            { comment_id: 11, body: "Yes, see the test." },
-            { comment_id: 99, body: "Conversation, not a thread." },
-            { comment_id: 7, body: "Unknown." },
           ],
         })
       );
@@ -145,20 +142,19 @@ describe("runReview", () => {
       event: "COMMENT",
       body: "## Review\n\nOne fix committed.",
       comments: [
-        { path: "src/a.ts", line: 2, side: "RIGHT", body: "Kept." },
-        { path: "src/a.test.ts", line: 1, side: "RIGHT", body: "Added by the fix." },
+        { path: "src/a.ts", line: 2, side: "RIGHT", body: "Fix required: kept." },
+        { path: "src/a.test.ts", line: 1, side: "RIGHT", body: "Decision required: added by the fix." },
+        { path: "src/a.ts", line: 3, side: "RIGHT", body: "Fix required: No opener." },
       ],
     });
-    expect(readJson("replies.json")).toEqual([{ comment_id: 10, body: "Yes, see the test." }]);
+    expect(fs.existsSync(path.join(out, "replies.json"))).toBe(false);
+    expect(fs.existsSync(path.join(out, "verdicts.json"))).toBe(false);
     expect(result.fixCommits).toBe(1);
-    expect(result.dropped).toHaveLength(4);
+    expect(result.dropped).toHaveLength(2);
 
     const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
     expect(logged).toContain("src/a.ts:50 (RIGHT) is not a line in the diff: Hallucinated line.");
-    expect(logged).toContain("comment 7 is not in an open review thread: Unknown.");
     expect(logged).toContain("src/nowhere.ts is not in the diff");
-    expect(logged).toContain("comment 99 is not in an open review thread");
-    expect(logged).toContain("comment 7 is not in an open review thread");
   });
 
   it("feeds the ticket, spec and threads to the produce prompt as data blocks", async () => {
@@ -179,12 +175,11 @@ describe("runReview", () => {
       SPEC: "<spec>\nSpec body\n</spec>",
     });
     expect(produce.promptArgs?.THREADS).toContain("<threads>");
-    expect(produce.promptArgs?.THREADS).toContain('"id":10');
+    expect(produce.promptArgs?.THREADS).toContain('"id": 10');
 
     const extract = mockRun.mock.calls[1]![0];
     expect(extract.prompt).toContain("<output>");
     expect(readJson("review.json").comments).toEqual([]);
-    expect(readJson("replies.json")).toEqual([]);
   });
 
   it("fails when the agent commits more than once", async () => {
@@ -229,5 +224,95 @@ describe("runReview", () => {
     fs.writeFileSync(path.join(out, "threads.json"), '{"threads":"nope"}');
     await expect(runReview(options())).rejects.toThrow(/threads file/);
     expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  describe("confirm mode", () => {
+    const underConfirmation = {
+      threads: [
+        {
+          path: "src/a.ts",
+          line: 2,
+          comments: [
+            { id: 10, author: "bot", body: "Fix required: upper-case it." },
+            { id: 11, author: "bot", body: "Fixed in `abc1234`: upper-cased." },
+          ],
+        },
+        { path: "src/a.ts", line: 3, comments: [{ id: 20, author: "dev", body: "Is three right?" }] },
+        { path: "src/a.ts", line: 1, comments: [{ id: 30, author: "bot", body: "Decision required: spec story 3." }] },
+        {
+          path: "src/a.ts",
+          line: 1,
+          comments: [
+            { id: 40, author: "bot", body: "Fix required: rename." },
+            { id: 41, author: "bot", body: "Not changed: the name is the spec's." },
+          ],
+        },
+      ],
+      comments: [],
+    };
+
+    beforeEach(() => {
+      fs.writeFileSync(path.join(out, "threads.json"), JSON.stringify(underConfirmation));
+      vi.spyOn(console, "log").mockImplementation(() => {});
+    });
+
+    it("gives the agent only the threads under confirmation, from the confirm prompt", async () => {
+      mockRun.mockResolvedValueOnce(produced()).mockResolvedValueOnce(confirmed({ summary: "ok" }));
+
+      await runReview(options({ mode: "confirm" }));
+
+      const produce = mockRun.mock.calls[0]![0];
+      expect(produce.promptFile).toBe(path.join(import.meta.dirname, "confirm-prompt.md"));
+      expect(produce.promptArgs?.THREADS).toContain('"id": 10');
+      expect(produce.promptArgs?.THREADS).toContain('"id": 20');
+      expect(produce.promptArgs?.THREADS).not.toContain('"id": 30');
+      expect(produce.promptArgs?.THREADS).not.toContain('"id": 40');
+      expect(mockRun.mock.calls[1]![0].prompt).toContain("<output>");
+    });
+
+    it("writes the verdicts and a review with decision threads only, and logs an unjudged thread", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockRun.mockResolvedValueOnce(produced()).mockResolvedValueOnce(
+        confirmed({
+          summary: "## Verified\n\n- upper-cased.",
+          verdicts: [{ comment_id: 11, verified: true, reason: "the test fails without it." }],
+          comments: [{ path: "src/a.ts", line: 2, body: "the fix dropped the trailing newline." }],
+        })
+      );
+
+      const result = await runReview(options({ mode: "confirm" }));
+
+      expect(readJson("verdicts.json")).toEqual([
+        { comment_id: 10, verified: true, body: "Fix verified. the test fails without it." },
+      ]);
+      expect(readJson("review.json").comments).toEqual([
+        { path: "src/a.ts", line: 2, side: "RIGHT", body: "Decision required: the fix dropped the trailing newline." },
+      ]);
+      expect(result.unjudged).toEqual([20]);
+      expect(result.fixCommits).toBe(0);
+      expect(warn.mock.calls.map((c) => c.join(" ")).join("\n")).toContain("Unjudged thread: comment 20");
+    });
+
+    it("fails when the confirmation commits", async () => {
+      mockRun
+        .mockImplementationOnce(async () => {
+          write("b.ts", "b\n");
+          commit("sneaky");
+          return produced();
+        })
+        .mockResolvedValueOnce(confirmed({ summary: "ok" }));
+
+      await expect(runReview(options({ mode: "confirm" }))).rejects.toThrow(/never changes the code/);
+      expect(fs.existsSync(path.join(out, "verdicts.json"))).toBe(false);
+    });
+
+    it("fails before running the agent when no thread is under confirmation", async () => {
+      fs.writeFileSync(
+        path.join(out, "threads.json"),
+        JSON.stringify({ threads: [underConfirmation.threads[2], underConfirmation.threads[3]], comments: [] })
+      );
+      await expect(runReview(options({ mode: "confirm" }))).rejects.toThrow(/nothing to confirm/);
+      expect(mockRun).not.toHaveBeenCalled();
+    });
   });
 });

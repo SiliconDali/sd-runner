@@ -187,7 +187,7 @@ describe("runAddressReview", () => {
       SPEC: "<spec>\nSpec body\n</spec>",
     });
     expect(produce.promptArgs?.THREADS).toContain("<threads>");
-    expect(produce.promptArgs?.THREADS).toContain('"id":20');
+    expect(produce.promptArgs?.THREADS).toContain('"id": 20');
 
     const extract = mockRun.mock.calls[1]![0];
     expect(extract.prompt).toContain("<output>");
@@ -282,8 +282,8 @@ describe("runAddressReview", () => {
     expect(readJson("replies.json")).toEqual([{ comment_id: 10, body: "Not changed: fine." }]);
   });
 
-  it("does not count a thread that already ends on an earlier round's reply as unanswered", async () => {
-    const withEarlier = {
+  it("keeps threads closed by a bot's last word and decision threads from the agent, and never counts them unanswered", async () => {
+    const withOthers = {
       ...threads,
       threads: [
         ...threads.threads,
@@ -291,13 +291,14 @@ describe("runAddressReview", () => {
           path: "src/a.ts",
           line: 9,
           comments: [
-            { id: 30, author: "reviewer", body: "Drop this." },
+            { id: 30, author: "reviewer", body: "Fix required: drop this." },
             { id: 31, author: "bot", body: "Not changed: out of scope." },
           ],
         },
+        { path: "src/a.ts", line: 1, comments: [{ id: 40, author: "reviewer", body: "Decision required: spec story 3." }] },
       ],
     };
-    fs.writeFileSync(path.join(out, "threads.json"), JSON.stringify(withEarlier));
+    fs.writeFileSync(path.join(out, "threads.json"), JSON.stringify(withOthers));
     mockRun.mockResolvedValueOnce(produced()).mockResolvedValueOnce(
       extracted({
         summary: "ok",
@@ -312,14 +313,21 @@ describe("runAddressReview", () => {
 
     expect(result.unanswered).toEqual([]);
     expect(logged()).not.toContain("comment 30");
+    const given = mockRun.mock.calls[0]![0].promptArgs?.THREADS;
+    expect(given).toContain('"id": 10');
+    expect(given).not.toContain('"id": 30');
+    expect(given).not.toContain('"id": 40');
   });
 
-  it("fails before running the agent when there are no unresolved review threads", async () => {
+  it("fails before running the agent when no thread is the fixer's work", async () => {
     fs.writeFileSync(
       path.join(out, "threads.json"),
-      JSON.stringify({ threads: [], comments: [{ id: 99, body: "General note." }] })
+      JSON.stringify({
+        threads: [{ path: "a", line: 1, comments: [{ id: 40, body: "Decision required: spec story 3." }] }],
+        comments: [{ id: 99, body: "General note." }],
+      })
     );
-    await expect(runAddressReview(options())).rejects.toThrow(/no unresolved review threads/);
+    await expect(runAddressReview(options())).rejects.toThrow(/nothing to address/);
     expect(mockRun).not.toHaveBeenCalled();
   });
 

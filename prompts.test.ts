@@ -8,6 +8,7 @@ const prompts = [
   "implement/prompt.md",
   "write-pr/prompt.md",
   "review/prompt.md",
+  "review/confirm-prompt.md",
   "address-review/prompt.md",
 ];
 const read = (file: string) => fs.readFileSync(path.join(here, file), "utf8");
@@ -17,7 +18,7 @@ describe("prompts", () => {
     expect(read("write-pr/prompt.md")).toContain("<output>");
   });
 
-  it.each(["review/extract.md", "address-review/extract.md"])(
+  it.each(["review/extract.md", "review/confirm-extract.md", "address-review/extract.md"])(
     "%s expects an <output> block and takes no args",
     (file) => {
       // It is sent inline on resume, where sandcastle allows no promptArgs.

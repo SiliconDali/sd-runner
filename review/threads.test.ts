@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { claimed, confirmScope, fixerWork, forDecision, parseThreads, selectThreads, threadRoots } from "./threads";
+import { awaitingDecision, claimed, confirmScope, fixerWork, forDecision, parseThreads, selectThreads, threadRoots } from "./threads";
 
 const file = {
   threads: [
@@ -54,6 +54,8 @@ const thread = (...bodies: string[]) => ({
 describe("thread kinds", () => {
   const fixRequired = thread("Fix required: off by one.");
   const decision = thread("Decision required: the spec asks for X, the ticket omits it.");
+  const answered = thread("Decision required: the spec asks for X, the ticket omits it.", "(b): add X here.");
+  const answeredFixed = thread("Decision required: the spec asks for X.", "(b): add X here.", "Fixed in `abc1234`: X added.");
   const human = thread("Is this right?");
   const fixed = thread("Fix required: off by one.", "Fixed in `abc1234`: bounds check.");
   const declined = thread("Fix required: rename.", "Not changed: the name is the spec's.");
@@ -67,9 +69,14 @@ describe("thread kinds", () => {
     expect(forDecision(human)).toBe(false);
   });
 
-  it("fixerWork is every thread not for a decision and not closed by a bot's last word", () => {
-    expect([fixRequired, human, reopened, notVerified].map(fixerWork)).toEqual([true, true, true, true]);
-    expect([decision, fixed, declined, verified].map(fixerWork)).toEqual([false, false, false, false]);
+  it("fixerWork is every thread whose last word is not a bot's: a decision awaiting the developer, fixed, declined or verified", () => {
+    expect([fixRequired, human, reopened, notVerified, answered].map(fixerWork)).toEqual([true, true, true, true, true]);
+    expect([decision, fixed, declined, verified, answeredFixed].map(fixerWork)).toEqual([false, false, false, false, false]);
+  });
+
+  it("awaitingDecision is a decision thread nobody has answered yet", () => {
+    expect([decision].map(awaitingDecision)).toEqual([true]);
+    expect([answered, answeredFixed, fixRequired, human].map(awaitingDecision)).toEqual([false, false, false, false]);
   });
 
   it("confirmScope keeps claimed and unclaimed threads, and drops decisions, declines and verified ones", () => {

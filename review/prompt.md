@@ -29,7 +29,7 @@ A finding is one of three things: behaviour that is wrong, a breach of a standar
 A thread's first words say who acts on it next, and every thread you open starts with one of the two:
 
 - `Fix required:` is work for the fix run that follows this one: what to change, on the line it concerns, and why. The fix run does it or declines it with a reason.
-- `Decision required:` is written to the developer and no bot acts on it: what the spec or ticket asks, which line misses it or contradicts it, and what the developer's options are. It asks the fix run for nothing.
+- `Decision required:` is written to the developer: what the spec or ticket asks, which line misses it or contradicts it, and the developer's options, lettered so a one-line answer can pick one. The fix run that follows this one leaves it alone; once the developer answers in the thread, a later fix run carries the answer out.
 
 Run the repository's documented checks (typecheck, lint, tests) before committing. Put every fix in one commit on `{{BRANCH}}`, following the repository's commit convention and referencing `{{EXTERNAL_REF}}` where the convention calls for a ticket reference. No fixes, no commit. Do not amend or rewrite existing commits, and do not push: the workflow around you pushes and posts the review.
 

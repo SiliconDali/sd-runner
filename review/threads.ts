@@ -39,7 +39,11 @@ export function parseThreads(text: string): Threads {
 export const OPENERS = {
   /** A review thread a bot acts on this run: a correctness or standards finding. */
   fixRequired: "Fix required:",
-  /** A thread no bot acts on: a spec gap, a spec/ticket conflict, or a fault the confirmation found. */
+  /**
+   * A thread written to the developer: a spec gap, a spec/ticket conflict, or a
+   * fault the confirmation found. It waits on their answer in the thread; once
+   * answered, it is the fixer's work like any other.
+   */
   decisionRequired: "Decision required:",
   /** The fixer's reply when it changed the code, followed by the commit's short SHA. */
   fixedIn: "Fixed in",
@@ -60,13 +64,19 @@ export function forDecision(thread: Thread): boolean {
   return opens(firstBody(thread), OPENERS.decisionRequired);
 }
 
+/** True when the thread is a decision nobody has answered yet: its opener is still its last word. */
+export function awaitingDecision(thread: Thread): boolean {
+  return opens(lastBody(thread), OPENERS.decisionRequired);
+}
+
 /**
- * True when the thread is the fixer's work: not addressed to a human, and not
- * already closed by a bot's last word (fixed, declined, or verified). A human
- * reply after a decline, or a `Fix not verified:` verdict, reopens it.
+ * True when the thread is the fixer's work: its last word is not a bot's. A
+ * decision awaiting the developer, a fix, a decline and a verdict each close
+ * it; the developer's answer to a decision, a human reply after a decline, or
+ * a `Fix not verified:` verdict opens it again.
  */
 export function fixerWork(thread: Thread): boolean {
-  if (forDecision(thread)) return false;
+  if (awaitingDecision(thread)) return false;
   const last = lastBody(thread);
   return ![OPENERS.fixedIn, OPENERS.notChanged, OPENERS.fixVerified].some((o) => opens(last, o));
 }

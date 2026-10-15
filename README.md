@@ -24,7 +24,7 @@ Outputs are neutral text and JSON a host maps onto its own system, with one know
 - `no-sandbox.ts`: sandcastle's host provider with the agent's stderr forwarded to the log as it arrives; sandcastle's own keeps stderr for the error it raises on a non-zero exit, so a warning on a successful run would be lost. `failure-reason.ts`: the reason a run records when it fails on a thrown error, trimmed to sandcastle's header and the `error:` line when the CLI crashed, since the full dump is already in the log.
 - `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist, `~/.npm` writable so `npm ci` works, and the Claude credential `CLAUDE_CODE_OAUTH_TOKEN` denied to sandboxed commands) and `managed-mcp.json` (no servers).
 - `bin/`: `prepare-host.sh`, which a host calls, and the two scripts it runs, `install-runner-policy.sh` and `neutralise-checkout-settings.sh`; `test.sh`.
-- `skills/`: `code-review/`, a copy of the upstream skill the `review` script runs, for a code repo that has no copy of its own; `skills/README.md` records the upstream commit, and `skills/LICENSE` is its MIT licence.
+- `skills/`: `code-review/`, `implement/` and `tdd/`, copies of the upstream skills the `review` and `implement` scripts run, for a code repo that has no copy of its own; `skills/README.md` records the upstream commit, and `skills/LICENSE` is its MIT licence.
 
 ## Inputs and outputs
 
@@ -48,7 +48,7 @@ The `implement` and `address-review` prompts read the code repo's `GLOSSARY.md` 
 
 ## Implement
 
-`implement` works the ticket on `BRANCH`, test-first where the code repo has a test suite, and makes one or more commits in the code repo's own convention; a run that ends with none fails with `Agent finished without committing on the branch.` A successful run writes nothing to `OUTPUT_DIR`. Uncommitted changes the agent leaves behind are logged as a warning and stay out of the commits the host pushes.
+`implement` works the ticket on `BRANCH` by the `implement` skill, building every change through the `tdd` skill's red → green loop at the seams the spec and ticket name, and makes one or more commits in the code repo's own convention; a run that ends with none fails with `Agent finished without committing on the branch.` A successful run writes nothing to `OUTPUT_DIR`. Uncommitted changes the agent leaves behind are logged as a warning and stay out of the commits the host pushes.
 
 ## Write PR
 
@@ -120,7 +120,7 @@ Push the fix commit, when there is one, before posting the replies.
    - runs `install-runner-policy.sh`, which writes the policy to `/etc/claude-code/` and installs bubblewrap, socat and ripgrep, and lifts the AppArmor restriction on unprivileged user namespaces host-wide (`sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`) so bubblewrap can run (`--no-sandbox`, run directly, gives a controls-only policy; both modes install the same packages and set the same sysctl);
    - prints one line stating the configured sandbox, beginning `Configured policy:`, for the run log;
    - runs `neutralise-checkout-settings.sh <checkout>` so no project `env`, hook or helper command reaches the CLI while `CLAUDE.md`, `AGENTS.md` and the skills beside them still load, and excludes sandcastle's `.sandcastle/` from git.
-3. For `review`, copy `<runner>/skills/code-review` to `<checkout>/.claude/skills/code-review` unless the checkout has its own. When that path is a link to nothing (a skills install the code repo ignores), copy to the link's target instead, refusing a target outside the checkout. Add the path that received the copy to `<checkout>/.git/info/exclude` so it never lands in a commit. `address-review` runs no skill.
+3. For `review`, copy `<runner>/skills/code-review` to `<checkout>/.claude/skills/code-review`, and for `implement`, `<runner>/skills/implement` and `<runner>/skills/tdd` the same way, each unless the checkout has its own. When that path is a link to nothing (a skills install the code repo ignores), copy to the link's target instead, refusing a target outside the checkout. Add the path that received the copy to `<checkout>/.git/info/exclude` so it never lands in a commit. `address-review` runs no skill.
 4. From the checkout, run the scripts with this repo's own tsx, with only the Claude credential and the variables above in the step's environment. Do not set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`: Claude Code 2.1.284 then forces the default permission mode, and every write waits for an approval nobody can give:
 
 ```

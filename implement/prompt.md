@@ -22,9 +22,9 @@ Read `.claude/skills/implement/SKILL.md` and follow it, with the ticket above as
 
 - Its `tdd` step is the whole build: call the Skill tool with "tdd" and work every change through its red → green loop, one slice at a time, until every acceptance criterion holds.
 - The pre-agreed seams are the ones the spec's Testing Decisions and the ticket name. Nobody will answer questions during this run, so where they name none, take the narrowest public seam the ticket implies and note what you assumed in the commit body.
-- A test the ticket asks to pass on the code as it is gets run against `{{BASE_BRANCH}}`'s code first, and is green there before any change it guards.
+- A characterization test (one the ticket asks to pass on the code as it is) is green on `{{BASE_BRANCH}}`'s code before you change that code.
 - Its code-review step belongs to the review that runs on your branch after you.
-- Run the repository's documented checks (typecheck, lint, tests) before each commit and add no errors that `{{BASE_BRANCH}}` does not already have.
+- A commit is ready when the repository's documented checks (typecheck, lint, tests) report only errors `{{BASE_BRANCH}}` already has.
 
 Stay inside the ticket. A sibling's work, and anything the spec mentions that this ticket leaves out, belongs to another run.
 

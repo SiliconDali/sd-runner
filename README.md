@@ -1,12 +1,12 @@
 # sd-runner
 
-What an unattended run executes: the scripts that drive Claude Code through [sandcastle](https://github.com/mattpocock/sandcastle), their prompts, the policy Claude Code reads above every other settings level, the shell script that prepares a host, and the skills a run loads when the code repo has none of its own.
+Runs Claude Code unattended on one ticket: implement it, review the result, answer the review's threads. A host workflow (GitHub Actions, say) fetches the inputs to files, calls a script, then pushes and posts what the script left in `OUTPUT_DIR`.
 
-A host workflow checks this repo out at a full commit SHA and calls into it. Nothing here knows which tracker, repository or organisation the host serves.
+The scripts drive Claude Code through [sandcastle](https://github.com/mattpocock/sandcastle) under a locked-down policy, with pinned copies of Matt Pocock's `implement`, `tdd` and `code-review` skills. Nothing here knows which tracker, repository or organisation the host serves.
 
 ## Quick start
 
-On an Ubuntu host with `sudo` and `jq`:
+Needs an Ubuntu host with Node 22+, `sudo` and `jq`.
 
 ```sh
 # 1. This repo checked out at a full commit SHA, never a branch or tag
@@ -55,17 +55,17 @@ Every script also reads `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` an
 
 ## Inputs
 
-| Variable                                    | Meaning                                                                                                                                                                                                                                    |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `BRANCH`                                    | branch to work on, already checked out                                                                                                                                                                                                     |
-| `BASE_BRANCH`                               | branch it was cut from and merges into; for `review` and `write-pr`, any ref that resolves in the checkout (`origin/main`, say), since `review` diffs `BASE_BRANCH...HEAD` and `write-pr`'s agent runs `git log` and `git diff` against it |
-| `EXTERNAL_REF`                              | opaque reference to the work in the host's system                                                                                                                                                                                          |
-| `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`)                                                                                                                 |
-| `DIAGNOSTICS_FILE`                          | `implement` only, optional: commands the agent runs and reports before the task, for proving a runner control on one run ([details](docs/implement.md#diagnostics))                                                                        |
-| `THREADS_FILE`                              | `review` and `address-review`: the pull request's existing discussion as JSON ([shape](docs/threads.md#threads_file)), reaching the prompt as `<threads>`                                                                                  |
-| `REVIEW_MODE`                               | `review` only: `review` (default) or the optional `confirm`                                                                                                                                                                                |
-| `OUTPUT_DIR`                                | where results go (default: the OS temp dir)                                                                                                                                                                                                |
-| `MODEL`                                     | Claude model id (default in `prompt-args.ts`)                                                                                                                                                                                              |
+| Variable                                    | Meaning                                                                                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BRANCH`                                    | branch to work on, already checked out                                                                                                                              |
+| `BASE_BRANCH`                               | branch it was cut from and merges into; `review` and `write-pr` take any ref that resolves (`origin/main`)                                                          |
+| `EXTERNAL_REF`                              | opaque reference to the work in the host's system                                                                                                                   |
+| `TICKET_FILE`, `SPEC_FILE`, `SIBLINGS_FILE` | files the host fetched before the run; each reaches the prompt as a tagged data block (`<ticket>`, `<spec>`, `<siblings>`)                                          |
+| `DIAGNOSTICS_FILE`                          | `implement` only, optional: commands the agent runs and reports before the task, for proving a runner control on one run ([details](docs/implement.md#diagnostics)) |
+| `THREADS_FILE`                              | `review` and `address-review`: the pull request's existing discussion as JSON ([shape](docs/threads.md#threads_file)), reaching the prompt as `<threads>`           |
+| `REVIEW_MODE`                               | `review` only: `review` (default) or the optional `confirm`                                                                                                         |
+| `OUTPUT_DIR`                                | where results go (default: the OS temp dir)                                                                                                                         |
+| `MODEL`                                     | Claude model id (default in `prompt-args.ts`)                                                                                                                       |
 
 - The Claude credential is not read by the scripts: Claude Code inherits it from the step's environment. It is the only credential a run holds.
 - The `implement` and `address-review` prompts read the code repo's `GLOSSARY.md` and `docs/adr/` where they exist.
@@ -78,13 +78,16 @@ Every script also reads `BRANCH`, `BASE_BRANCH`, `EXTERNAL_REF`, `OUTPUT_DIR` an
 
 ## Layout
 
-- `implement/`, `write-pr/`, `review/`, `address-review/`: one script each, with its prompt. `review.ts` and `address-review.ts` only read the environment and record failures, so the flows in `run-review.ts` and `run-address-review.ts` can be tested against a throwaway repo with sandcastle mocked. `review/threads.ts` holds the [thread openers](docs/threads.md) every stage reads.
-- `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts`: wrappers over sandcastle's `run()` that resume the agent's session with feedback when structured output fails validation.
-- `no-sandbox.ts`: sandcastle's host provider with the agent's stderr forwarded to the log as it arrives. Sandcastle's own keeps stderr for the error it raises on a non-zero exit, so a warning on a successful run would be lost.
-- `failure-reason.ts`: the reason a run records when it fails on a thrown error, trimmed to sandcastle's header and the `error:` line when the CLI crashed, since the full dump is already in the log.
-- `policy/`: `managed-settings.json` (hooks off, web and MCP tools denied, pinned env, sandbox with a strict one-host allowlist, `~/.npm` writable so `npm ci` works, the Claude credential `CLAUDE_CODE_OAUTH_TOKEN` denied to sandboxed commands) and `managed-mcp.json` (no servers).
-- `bin/`: `prepare-host.sh`, which a host calls, and the two scripts it runs, `install-runner-policy.sh` and `neutralise-checkout-settings.sh`; `test.sh`.
-- `skills/`: `code-review/`, `implement/` and `tdd/`, copies of the upstream skills the `review` and `implement` scripts run, for a code repo that has no copy of its own. `skills/README.md` records the upstream commit; `skills/LICENSE` is its MIT licence.
+| Path                                                               | What's there                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `implement/`, `write-pr/`, `review/`, `address-review/`            | one script each, with its prompt; `review/threads.ts` holds the [thread openers](docs/threads.md); `review.ts` and `address-review.ts` only read the environment, so tests drive the flows in `run-review.ts` and `run-address-review.ts` |
+| `run-with-retry.ts`, `run-with-extraction.ts`, `retry-feedback.ts` | wrappers that resume the agent with feedback when its structured output fails validation                                                                                                                                                  |
+| `no-sandbox.ts`                                                    | sandcastle's host provider, forwarding the agent's stderr to the log as it arrives                                                                                                                                                        |
+| `failure-reason.ts`                                                | the one-line reason a failed run records                                                                                                                                                                                                  |
+| `policy/`                                                          | `managed-settings.json` (hooks off, web and MCP tools denied, one-host sandbox allowlist, credential hidden from commands) and `managed-mcp.json` (no servers)                                                                            |
+| `bin/`                                                             | `prepare-host.sh` and the two scripts it runs; `test.sh`                                                                                                                                                                                  |
+| `skills/`                                                          | the pinned upstream `code-review`, `implement` and `tdd`; `skills/README.md` records the commit, `skills/LICENSE` the MIT licence                                                                                                         |
+| `docs/`                                                            | each script's contract, the thread openers, host wiring                                                                                                                                                                                   |
 
 ## Public repo
 
@@ -98,10 +101,7 @@ Nothing committed here (code, prompts, docs, tests, fixtures, commit messages, c
 npm run check
 ```
 
-Runs the typecheck, the vitest suite and `bin/test.sh`. CI runs it on every pull request and on `main`.
-
-- **vitest:** the retry and extraction wrappers, the review and address-review flows with sandcastle's `run` mocked against throwaway repos, every output schema, the thread kinds, comment, reply and verdict validation, the diff anchor index, data blocks, prompt placeholders, the diagnostics section, the failure reason and the stderr-forwarding provider.
-- **`bin/test.sh`:** the shell scripts against throwaway git repos, with the policy and Claude Code's link in temp dirs and `sudo` stubbed.
+Typecheck, the vitest suite (the flows run against throwaway repos with sandcastle mocked) and `bin/test.sh` (the shell scripts, `sudo` stubbed). CI runs it on every pull request and on `main`.
 
 ## Changes
 

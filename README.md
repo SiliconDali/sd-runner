@@ -109,4 +109,4 @@ Typecheck, the vitest suite (the flows run against throwaway repos with sandcast
 
 - Every change that alters what a run does carries a changeset (`npm run changeset`), updating a copied skill included.
 - History before the move to this repo, blame included, comes from the skills fork's `runner/` directory; `Merge pull request SiliconDali/skills#N` commits refer to that repo's pull requests.
-- The wrappers and their tests are adapted from [mattpocock/course-video-manager](https://github.com/mattpocock/course-video-manager) (MIT).
+- The wrappers and their tests are adapted from [mattpocock/course-video-manager](https://github.com/mattpocock/course-video-manager).

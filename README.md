@@ -1,12 +1,18 @@
-# sd-runner
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/banner-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./assets/banner-light.png">
+    <img alt="sd-runner: Claude Code, unattended, one ticket at a time" src="./assets/banner-light.png" height="200">
+  </picture>
+</div>
 
-Runs Claude Code unattended on one ticket: implement it, review the result, answer the review's threads. A host workflow (GitHub Actions, say) fetches the inputs to files, calls a script, then pushes and posts what the script left in `OUTPUT_DIR`.
+Scripts and prompts that run Claude Code unattended on one ticket: implement it on a branch, review the result, and fix or decline what the review raised. A host, a CI workflow such as GitHub Actions, fetches the ticket and spec to files, calls a script, then pushes and posts what the script leaves behind. The agent never holds a git or tracker credential and never calls a tracker or code-host API.
 
-The scripts drive Claude Code through [sandcastle](https://github.com/mattpocock/sandcastle) under a locked-down policy, with pinned copies of Matt Pocock's `implement`, `tdd` and `code-review` skills. Nothing here knows which tracker, repository or organisation the host serves.
+Built on [sandcastle](https://github.com/mattpocock/sandcastle) with pinned copies of Matt Pocock's `implement`, `tdd` and `code-review` skills, under a runner policy that switches off the checkout's hooks, MCP servers and web tools. Nothing here names a tracker, repository or organisation, so one host can serve any repo, and the team whose code a run touches can read exactly what ran.
 
 ## Quick start
 
-Needs an Ubuntu host with Node 22+, `sudo` and `jq`.
+Needs an Ubuntu host with Node 22+, `sudo` and `jq`. Below, `<runner>` is this repo's checkout and `<checkout>` the repo the agent works on.
 
 ```sh
 # 1. This repo checked out at a full commit SHA, never a branch or tag

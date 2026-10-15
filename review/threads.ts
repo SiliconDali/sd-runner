@@ -24,10 +24,71 @@ export const Threads = z.object({
 });
 
 export type Threads = z.infer<typeof Threads>;
+export type Thread = z.infer<typeof Thread>;
 
 /** Parse the threads file; throws on malformed JSON or shape. */
 export function parseThreads(text: string): Threads {
   return Threads.parse(JSON.parse(text));
+}
+
+/**
+ * The words a thread opens with and the words a bot replies with. Every stage
+ * reads them the same way, and so can the developer: a thread's first words
+ * say who acts on it next, and a reply's first words say what the bot did.
+ */
+export const OPENERS = {
+  /** A review thread a bot acts on this run: a correctness or standards finding. */
+  fixRequired: "Fix required:",
+  /** A thread no bot acts on: a spec gap, a spec/ticket conflict, or a fault the confirmation found. */
+  decisionRequired: "Decision required:",
+  /** The fixer's reply when it changed the code, followed by the commit's short SHA. */
+  fixedIn: "Fixed in",
+  /** The fixer's reply when it declined, followed by the reason. */
+  notChanged: "Not changed:",
+  /** The confirmation's reply when the fix holds on HEAD. */
+  fixVerified: "Fix verified.",
+  /** The confirmation's reply when a claimed fix does not hold, followed by the reason. */
+  fixNotVerified: "Fix not verified:",
+} as const;
+
+const opens = (body: string, opener: string) => body.trimStart().startsWith(opener);
+const firstBody = (thread: Thread) => thread.comments[0]!.body;
+const lastBody = (thread: Thread) => thread.comments[thread.comments.length - 1]!.body;
+
+/** True when the thread is addressed to a human: no bot acts on it. */
+export function forDecision(thread: Thread): boolean {
+  return opens(firstBody(thread), OPENERS.decisionRequired);
+}
+
+/**
+ * True when the thread is the fixer's work: not addressed to a human, and not
+ * already closed by a bot's last word (fixed, declined, or verified). A human
+ * reply after a decline, or a `Fix not verified:` verdict, reopens it.
+ */
+export function fixerWork(thread: Thread): boolean {
+  if (forDecision(thread)) return false;
+  const last = lastBody(thread);
+  return ![OPENERS.fixedIn, OPENERS.notChanged, OPENERS.fixVerified].some((o) => opens(last, o));
+}
+
+/**
+ * True when the thread is the confirmation's to judge on HEAD: not addressed
+ * to a human, not declined by the fixer's last word, and not verified already.
+ */
+export function confirmScope(thread: Thread): boolean {
+  if (forDecision(thread)) return false;
+  const last = lastBody(thread);
+  return ![OPENERS.notChanged, OPENERS.fixVerified].some((o) => opens(last, o));
+}
+
+/** True when a reply in the thread claims a fix (`Fixed in`). */
+export function claimed(thread: Thread): boolean {
+  return thread.comments.some((c) => opens(c.body, OPENERS.fixedIn));
+}
+
+/** The threads that pass `keep`, with the conversation comments untouched. */
+export function selectThreads(threads: Threads, keep: (thread: Thread) => boolean): Threads {
+  return { threads: threads.threads.filter(keep), comments: threads.comments };
 }
 
 /**

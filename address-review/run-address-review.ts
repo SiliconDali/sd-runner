@@ -6,7 +6,7 @@ import { dataBlock } from "../data-block";
 import { fileBlock, type RunInputs } from "../prompt-args";
 import { runWithExtraction } from "../run-with-extraction";
 import type { ThreadReply } from "../review/output";
-import { parseThreads, type Threads } from "../review/threads";
+import { fixerWork, parseThreads, selectThreads, type Threads } from "../review/threads";
 import { validateReplies, type Dropped } from "../review/validate";
 import { AddressReviewOutput } from "./output";
 
@@ -38,19 +38,14 @@ export interface AddressReviewRunResult {
 }
 
 /**
- * Address the unresolved review threads on the checked-out branch: the agent
- * fixes or declines each one, commits its fixes at most once, then emits one
- * reply per thread as structured output. Writes `replies.json` (the review's
+ * Address the review threads that are the fixer's work on the checked-out
+ * branch: the agent fixes or declines each one, commits its fixes at most
+ * once, then emits one reply per thread as structured output. A thread
+ * addressed to a human (`Decision required:`) or closed by a bot's last word
+ * is left out before the agent sees it. Writes `replies.json` (the review's
  * shape, one entry per thread at its first comment) and `summary.md` to the
  * output dir; throws on any failure, leaving the caller to record it.
  */
-const REPLY_OPENERS = ["Fixed in", "Not changed:"];
-
-function addressedEarlier(thread: { comments: { body: string }[] }): boolean {
-  const last = thread.comments[thread.comments.length - 1]!.body;
-  return REPLY_OPENERS.some((opener) => last.startsWith(opener));
-}
-
 export async function runAddressReview(
   options: AddressReviewRunOptions
 ): Promise<AddressReviewRunResult> {
@@ -58,18 +53,18 @@ export async function runAddressReview(
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }).trim();
 
-  const threadsText = fs.readFileSync(options.threadsFile, "utf8");
   let threads: Threads;
   try {
-    threads = parseThreads(threadsText);
+    threads = selectThreads(parseThreads(fs.readFileSync(options.threadsFile, "utf8")), fixerWork);
   } catch (error) {
     throw new Error(
       `The threads file ${options.threadsFile} is malformed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
   if (threads.threads.length === 0) {
-    throw new Error(`The threads file ${options.threadsFile} has no unresolved review threads: nothing to address.`);
+    throw new Error(`The threads file ${options.threadsFile} has no thread for the fixer: nothing to address.`);
   }
+  const threadsText = JSON.stringify(threads, null, 2);
 
   const startSha = git("rev-parse", "HEAD");
 
@@ -113,13 +108,10 @@ export async function runAddressReview(
   const headSha = git("rev-parse", "HEAD");
   const validated = validateReplies(result.output.replies, threads);
   for (const dropped of validated.dropped) {
-    console.warn(`Dropped ${dropped.kind}: ${dropped.reason}: ${dropped.item.body}`);
+    console.warn(`Dropped ${dropped.kind}: ${dropped.reason}: ${"body" in dropped.item ? dropped.item.body : JSON.stringify(dropped.item)}`);
   }
   const answered = new Set(validated.replies.map((reply) => reply.comment_id));
-  // A thread that ends on a reply of the fixer's kind was addressed by an
-  // earlier round and the prompt leaves it alone, so it is not unanswered.
   const unanswered: UnansweredThread[] = threads.threads
-    .filter((thread) => !addressedEarlier(thread))
     .map((thread) => ({ comment_id: thread.comments[0]!.id, path: thread.path, line: thread.line }))
     .filter((thread) => !answered.has(thread.comment_id));
   for (const thread of unanswered) {

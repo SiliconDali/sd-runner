@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { ReviewOutput } from "./output";
+import { ConfirmOutput, ReviewOutput } from "./output";
 
 const valid = {
   summary: "## Review\n\nLooks fine.",
-  comments: [{ path: "src/a.ts", line: 3, body: "Off by one." }],
-  replies: [{ comment_id: 42, body: "Fixed in the review commit." }],
+  comments: [{ path: "src/a.ts", line: 3, body: "Fix required: off by one." }],
 };
 
 describe("ReviewOutput", () => {
-  it("accepts a summary, inline comments and replies", () => {
+  it("accepts a summary and inline comments", () => {
     expect(ReviewOutput.safeParse(valid).success).toBe(true);
   });
 
@@ -20,18 +19,19 @@ describe("ReviewOutput", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("defaults comments and replies to empty", () => {
-    const parsed = ReviewOutput.parse({ summary: "ok" });
-    expect(parsed.comments).toEqual([]);
-    expect(parsed.replies).toEqual([]);
+  it("defaults comments to empty", () => {
+    expect(ReviewOutput.parse({ summary: "ok" }).comments).toEqual([]);
   });
 
   it("rejects an empty summary", () => {
     expect(ReviewOutput.safeParse({ ...valid, summary: "" }).success).toBe(false);
   });
 
-  it("rejects a hallucinated field", () => {
+  it("rejects a hallucinated field, replies included: the review answers no thread", () => {
     expect(ReviewOutput.safeParse({ ...valid, event: "APPROVE" }).success).toBe(false);
+    expect(
+      ReviewOutput.safeParse({ ...valid, replies: [{ comment_id: 1, body: "b" }] }).success
+    ).toBe(false);
   });
 
   it("rejects a non-positive or fractional line", () => {
@@ -51,12 +51,24 @@ describe("ReviewOutput", () => {
     });
     expect(parsed.success).toBe(false);
   });
+});
 
-  it("rejects a reply without a numeric comment id", () => {
-    const parsed = ReviewOutput.safeParse({
-      ...valid,
-      replies: [{ thread_id: "PRRT_x", body: "b" }],
+describe("ConfirmOutput", () => {
+  it("accepts a summary, verdicts and inline comments, defaulting the reason", () => {
+    const parsed = ConfirmOutput.parse({
+      summary: "ok",
+      verdicts: [{ comment_id: 42, verified: true }],
+      comments: valid.comments,
     });
-    expect(parsed.success).toBe(false);
+    expect(parsed.verdicts).toEqual([{ comment_id: 42, verified: true, reason: "" }]);
+  });
+
+  it("defaults verdicts and comments to empty", () => {
+    expect(ConfirmOutput.parse({ summary: "ok" })).toEqual({ summary: "ok", verdicts: [], comments: [] });
+  });
+
+  it("rejects a verdict without a boolean or a numeric comment id", () => {
+    expect(ConfirmOutput.safeParse({ summary: "ok", verdicts: [{ comment_id: 1, verified: "yes" }] }).success).toBe(false);
+    expect(ConfirmOutput.safeParse({ summary: "ok", verdicts: [{ thread_id: "PRRT_x", verified: true }] }).success).toBe(false);
   });
 });

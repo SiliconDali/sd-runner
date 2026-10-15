@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseThreads, threadRoots } from "./threads";
+import { claimed, confirmScope, fixerWork, forDecision, parseThreads, selectThreads, threadRoots } from "./threads";
 
 const file = {
   threads: [
@@ -42,5 +42,49 @@ describe("threadRoots", () => {
 
   it("does not map conversation comments, which have no thread to reply in", () => {
     expect(roots.has(99)).toBe(false);
+  });
+});
+
+const thread = (...bodies: string[]) => ({
+  path: "src/a.ts",
+  line: 1,
+  comments: bodies.map((body, i) => ({ id: i + 1, author: i === 0 ? "reviewer" : "bot", body })),
+});
+
+describe("thread kinds", () => {
+  const fixRequired = thread("Fix required: off by one.");
+  const decision = thread("Decision required: the spec asks for X, the ticket omits it.");
+  const human = thread("Is this right?");
+  const fixed = thread("Fix required: off by one.", "Fixed in `abc1234`: bounds check.");
+  const declined = thread("Fix required: rename.", "Not changed: the name is the spec's.");
+  const reopened = thread("Fix required: rename.", "Not changed: the name is the spec's.", "Please do it anyway.");
+  const verified = thread("Is this right?", "Fixed in `abc1234`.", "Fix verified.");
+  const notVerified = thread("Fix required: off by one.", "Fixed in `abc1234`.", "Fix not verified: the test passes without the change.");
+
+  it("forDecision reads the first comment's opener", () => {
+    expect(forDecision(decision)).toBe(true);
+    expect(forDecision(fixRequired)).toBe(false);
+    expect(forDecision(human)).toBe(false);
+  });
+
+  it("fixerWork is every thread not for a decision and not closed by a bot's last word", () => {
+    expect([fixRequired, human, reopened, notVerified].map(fixerWork)).toEqual([true, true, true, true]);
+    expect([decision, fixed, declined, verified].map(fixerWork)).toEqual([false, false, false, false]);
+  });
+
+  it("confirmScope keeps claimed and unclaimed threads, and drops decisions, declines and verified ones", () => {
+    expect([fixRequired, human, fixed, reopened, notVerified].map(confirmScope)).toEqual([true, true, true, true, true]);
+    expect([decision, declined, verified].map(confirmScope)).toEqual([false, false, false]);
+  });
+
+  it("claimed is any reply opening Fixed in", () => {
+    expect(claimed(fixed)).toBe(true);
+    expect(claimed(notVerified)).toBe(true);
+    expect(claimed(fixRequired)).toBe(false);
+  });
+
+  it("selectThreads filters the threads and keeps the conversation comments", () => {
+    const all = parseThreads(JSON.stringify({ threads: [fixRequired, decision], comments: [{ id: 99, body: "note" }] }));
+    expect(selectThreads(all, fixerWork)).toEqual({ threads: [fixRequired], comments: [{ id: 99, body: "note" }] });
   });
 });

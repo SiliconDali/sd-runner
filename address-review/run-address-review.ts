@@ -40,11 +40,11 @@ export interface AddressReviewRunResult {
 /**
  * Address the review threads that are the fixer's work on the checked-out
  * branch: the agent fixes or declines each one, commits its fixes at most
- * once, then emits one reply per thread as structured output. A thread
- * addressed to a human (`Decision required:`) or closed by a bot's last word
- * is left out before the agent sees it. Writes `replies.json` (the review's
- * shape, one entry per thread at its first comment) and `summary.md` to the
- * output dir; throws on any failure, leaving the caller to record it.
+ * once, then emits one reply per thread as structured output. A
+ * `Decision required:` thread the developer has not answered yet, or one a
+ * bot's last word closed, is left out before the agent sees it. Writes
+ * `replies.json` (one entry per thread at its first comment) and `summary.md`
+ * to the output dir; throws on any failure, leaving the caller to record it.
  */
 export async function runAddressReview(
   options: AddressReviewRunOptions

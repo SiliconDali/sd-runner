@@ -1,6 +1,6 @@
 # skills
 
-Skills a run loads that the code repo may not carry itself. A host copies a skill directory into the checkout's `.claude/skills/` before the agent step, unless the checkout already has its own copy, and keeps the copy out of the commit.
+Skills a run loads that the code repo may not carry itself. A host copies a skill directory into the checkout's `.claude/skills/` before the agent step (or, where the skill's path there is a link to nothing, to the link's target, which must sit inside the checkout), unless the checkout already has its own copy, and keeps the copy out of the commit.
 
 | Skill | Upstream | Commit |
 | --- | --- | --- |
